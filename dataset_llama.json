@@ -1,0 +1,74 @@
+[
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Define an Akka actor that logs any message it receives."
+      },
+      {
+        "from": "assistant",
+        "value": "Here's how to create an Akka actor that logs messages:\n\nclass LoggingActor extends Actor {\n  def receive = {\n    case message =>\n      println(s\"Received: $message\")\n  }\n}"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Create an Akka HTTP route that serves a JSON response for a GET request to '/status'."
+      },
+      {
+        "from": "assistant",
+        "value": "Here's how to create an Akka HTTP route for the status endpoint:\n\nimport akka.http.scaladsl.server.Directives._\nimport akka.http.scaladsl.model.StatusCodes\n\nval route = path(\"status\") {\n  get {\n    complete((StatusCodes.OK, \"{\"status\": \"running\"}\"))\n  }\n}"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Show how to create an actor system with a router that sends messages to multiple workers."
+      },
+      {
+        "from": "assistant",
+        "value": "Here's how to create an actor system with a router for multiple workers:\n\nimport akka.actor.{Actor, ActorSystem, Props}\nimport akka.routing.RoundRobinPool\n\nclass WorkerActor extends Actor {\n  def receive = {\n    case message =>\n      println(s\"Worker received: $message\")\n  }\n}\n\nval system = ActorSystem(\"RouterSystem\")\nval router = system.actorOf(RoundRobinPool(5).props(Props[WorkerActor]), \"router\")\n\nfor (i <- 1 to 10) {\n  router ! s\"Task $i\"\n}"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Write an example of a persistent actor in Akka that saves its state after each command."
+      },
+      {
+        "from": "assistant",
+        "value": "Here's an example of a persistent actor that maintains its state:\n\nimport akka.persistence.PersistentActor\n\ncase object Increment\ncase object GetCount\ncase object Incremented\n\nclass PersistentCounter extends PersistentActor {\n  var count = 0\n\n  override def persistenceId: String = \"counter-id\"\n\n  override def receiveCommand: Receive = {\n    case Increment =>\n      persist(Incremented) { event =>\n        updateState(event)\n        sender() ! count\n      }\n    case GetCount =>\n      sender() ! count\n  }\n\n  override def receiveRecover: Receive = {\n    case Incremented => updateState(Incremented)\n  }\n\n  private def updateState(event: Incremented.type): Unit = {\n    count += 1\n  }\n}"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Explain how to stop an actor system in Akka."
+      },
+      {
+        "from": "assistant",
+        "value": "To stop an actor system in Akka, you can call the `terminate` method on the `ActorSystem` instance. Here's an example:\n\nval system = ActorSystem(\"ExampleSystem\")\n// Perform tasks with the actor system\n\n// When done, terminate the system\nsystem.terminate()\n\nThe `terminate` method initiates the shutdown process for the actor system and stops all actors within it."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Demonstrate how to use Akka Streams to process a simple data flow."
+      },
+      {
+        "from": "assistant",
+        "value": "Here's how to create a simple data flow using Akka Streams:\n\nimport akka.actor.ActorSystem\nimport akka.stream.scaladsl.{Flow, Sink, Source}\nimport akka.stream.Materializer\nimport scala.concurrent.ExecutionContextExecutor\n\nimplicit val system: ActorSystem = ActorSystem(\"StreamSystem\")\nimplicit val materializer: Materializer = Materializer(system)\nimplicit val ec: ExecutionContextExecutor = system.dispatcher\n\nval source = Source(1 to 100)\nval flow = Flow[Int].map(_ * 2)\nval sink = Sink.foreach[Int](println)\n\nsource.via(flow).runWith(sink)"
+      }
+    ]
+  }
+]
