@@ -11,6 +11,7 @@ datasets = "^3.1.0"
 unsloth = "^2024.11.11"
 nltk = "^3.9.1"
 codebleu = "^0.7.0"
+pandas = "^2.2.3"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.0.0"

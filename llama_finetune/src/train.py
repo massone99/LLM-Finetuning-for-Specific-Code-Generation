@@ -90,20 +90,47 @@ def main():
     # Configuration
     max_seq_length = 2048
     dataset_path = "./data/dataset_llama.json"
+    test_dataset_path = "./data/test_set.json"  # Path to test dataset
     output_dir = "./outputs"
     
     # Load model and tokenizer
     model, tokenizer = load_model_and_tokenizer(max_seq_length=max_seq_length)
+    
+    # Evaluate model before fine-tuning
+    print("Evaluating model before fine-tuning...")
+    from evaluate import evaluate_model
+    evaluate_model(model, tokenizer, test_dataset_path, output_prefix="before_finetuning")
     
     # Prepare dataset
     dataset = prepare_dataset(dataset_path, tokenizer)
     
     # Setup and start training
     trainer = setup_trainer(model, tokenizer, dataset, max_seq_length, output_dir)
-    trainer_stats = trainer.train()
     
-    print("Training completed!")
-    print(f"Training stats: {trainer_stats}")
+    # Track training time
+    import time
+    start_time = time.time()
+    training_output = trainer.train()
+    training_time = time.time() - start_time
+    
+    # Save training metrics
+    training_metrics = {
+        "training_time_seconds": training_time,
+        "training_stats": training_output.metrics if training_output else None
+    }
+    import json
+    with open(f"{output_dir}/training_metrics.json", "w") as f:
+        json.dump(training_metrics, f, indent=2)
+    
+    print(f"\nTraining completed in {training_time:.2f} seconds")
+    print(f"Training metrics saved to: {output_dir}/training_metrics.json")
+    
+    # Save the fine-tuned model
+    trainer.save_model(output_dir)
+    
+    # Evaluate model after fine-tuning
+    print("Evaluating model after fine-tuning...")
+    evaluate_model(model, tokenizer, test_dataset_path, output_prefix="after_finetuning")
 
 if __name__ == "__main__":
     main()

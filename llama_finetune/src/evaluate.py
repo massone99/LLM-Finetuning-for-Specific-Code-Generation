@@ -2,8 +2,6 @@ import json
 import pandas as pd
 import nltk
 from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
-import codebleu
-import tempfile
 import os
 from transformers import TextStreamer
 from unsloth import FastLanguageModel
@@ -18,35 +16,6 @@ def compute_bleu(reference, candidate):
     candidate_tokens = nltk.word_tokenize(candidate)
     smoothie = SmoothingFunction().method4
     return sentence_bleu([reference_tokens], candidate_tokens, smoothing_function=smoothie)
-
-def compute_codebleu(reference, candidate, language="scala"):
-    """Compute CodeBLEU score between reference and candidate code."""
-    import codebleu
-    
-    with tempfile.NamedTemporaryFile('w', delete=False, suffix=f'.{language}') as ref_file, \
-         tempfile.NamedTemporaryFile('w', delete=False, suffix=f'.{language}') as cand_file:
-        ref_file.write(reference)
-        cand_file.write(candidate)
-        ref_file_path = ref_file.name
-        cand_file_path = cand_file.name
-
-    metrics = ["token_overlap", "syntax", "dataflow"]
-
-    try:
-        codebleu_score = codebleu.calc_codebleu(
-            ref_file_path,
-            cand_file_path,
-            [language],
-            # calc_codebleu() got an unexpected keyword argument 'metrics'
-            metrics=metrics
-        )
-    except Exception as e:
-        print(f"Error computing CodeBLEU: {e}")
-        codebleu_score = 0.0
-
-    os.remove(ref_file_path)
-    os.remove(cand_file_path)
-    return codebleu_score
 
 def generate_code(model, tokenizer, prompts, max_new_tokens=256, temperature=1.5, min_p=0.1):
     """Generate code outputs for a list of prompts."""
@@ -74,9 +43,11 @@ def generate_code(model, tokenizer, prompts, max_new_tokens=256, temperature=1.5
     return generated_codes
 
 def evaluate_model(model, tokenizer, test_dataset_path, output_prefix="baseline"):
-    """Evaluate model performance using BLEU and CodeBLEU metrics."""
-    from evaluate import compute_bleu, compute_codebleu
+    """Evaluate model performance using BLEU metrics."""
+    from evaluate import compute_bleu
     from datasets import load_dataset
+    import json
+    from datetime import datetime
 
     # Load test dataset
     test_dataset = load_dataset('json', data_files=test_dataset_path, split='train')
@@ -102,36 +73,42 @@ def evaluate_model(model, tokenizer, test_dataset_path, output_prefix="baseline"
 
     # Calculate metrics
     bleu_scores = []
-    codebleu_scores = []
+    results = []
+
     for ref, gen in zip(test_references, generated_codes):
         bleu = compute_bleu(ref, gen)
-        codebleu = compute_codebleu(ref, gen)
         bleu_scores.append(bleu)
-        codebleu_scores.append(codebleu)
+        
+        results.append({
+            'reference': ref,
+            'generated': gen,
+            'bleu': bleu,
+        })
+
+    # Calculate average scores
+    avg_bleu = sum(bleu_scores) / len(bleu_scores)
+    avg_metrics = {'bleu': avg_bleu}
+
+    # Prepare evaluation results
+    evaluation_results = {
+        'timestamp': datetime.now().isoformat(),
+        'average_metrics': avg_metrics,
+        'detailed_results': results
+    }
+
+    # Create results directory if it doesn't exist
+    os.makedirs('./data/results', exist_ok=True)
 
     # Save results
-    # Create results directory if it doesn't exist
-    os.makedirs('data/results', exist_ok=True)
-    
-    results_df = pd.DataFrame({
-        'prompt': test_prompts,
-        'reference': test_references,
-        'generated': generated_codes,
-        'BLEU': bleu_scores,
-        'CodeBLEU': codebleu_scores
-    })
-    results_df.to_csv(f'data/results/{output_prefix}_results.csv', index=False)
+    output_file = f'./data/results/evaluation_results_{output_prefix}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json'
+    with open(output_file, 'w') as f:
+        json.dump(evaluation_results, f, indent=2)
 
-    # Calculate and save average metrics
-    avg_metrics = {
-        'average_BLEU': sum(bleu_scores) / len(bleu_scores),
-        'average_CodeBLEU': sum(codebleu_scores) / len(codebleu_scores)
-    }
-    
-    with open(f'data/results/{output_prefix}_metrics.json', 'w') as f:
-        json.dump(avg_metrics, f, indent=4)
+    print(f"\nEvaluation Results ({output_prefix}):")
+    print(f"Average BLEU Score: {avg_bleu:.4f}")
+    print(f"Detailed results saved to: {output_file}")
 
-    return avg_metrics
+    return evaluation_results
 
 def main():
     # Load model and tokenizer
@@ -142,12 +119,14 @@ def main():
     )
     tokenizer = get_chat_template(tokenizer, chat_template="llama-3.1")
     
+    test_set_path = "../data/test_set.json"
+
     # Evaluate baseline model
     print("Evaluating baseline model...")
     baseline_metrics = evaluate_model(
         model, 
         tokenizer, 
-        "./data/test_set.json",
+        test_set_path,
         "baseline"
     )
     print("Baseline metrics:", baseline_metrics)
@@ -160,7 +139,7 @@ def main():
     finetuned_metrics = evaluate_model(
         model, 
         tokenizer, 
-        "./data/test_set.json",
+        test_set_path,
         "finetuned"
     )
     print("Fine-tuned metrics:", finetuned_metrics)
