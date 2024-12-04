@@ -126,7 +126,7 @@ def main():
     print(f"Training metrics saved to: {output_dir}/training_metrics.json")
     
     # Save the fine-tuned model
-    trainer.save_model(output_dir)
+    trainer.save_model(f"{output_dir}/finetuned_model")
     
     # Evaluate model after fine-tuning
     print("Evaluating model after fine-tuning...")

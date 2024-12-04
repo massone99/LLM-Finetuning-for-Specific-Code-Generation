@@ -935,6 +935,17 @@ test = ["Pillow", "contourpy[test-no-images]", "matplotlib"]
 test-no-images = ["pytest", "pytest-cov", "pytest-rerunfailures", "pytest-xdist", "wurlitzer"]
 
 [[package]]
+name = "crystalbleu"
+version = "0.1"
+description = "CrystalBLEU score implementation."
+optional = false
+python-versions = "*"
+files = [
+    {file = "crystalbleu-0.1-py2.py3-none-any.whl", hash = "sha256:24833eb0f7e1c02a53a86603df35a3045142425b07e490233536290972af0a40"},
+    {file = "crystalbleu-0.1.tar.gz", hash = "sha256:334828cf3f4f45b0ab94a52cbb0f950ac2b684db1e61ebb1d28e21c791ccd43b"},
+]
+
+[[package]]
 name = "cycler"
 version = "0.12.1"
 description = "Composable style cycles"
@@ -7101,4 +7112,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9"
-content-hash = "d7d8ad1b11088c82251546232e937a7c55073bee9af4f9409c8140a9c3b5eb15"
+content-hash = "b087ed4744356dd6ba3ecb54c4467e37c582391d095c9487bef45fbba9ab11b7"

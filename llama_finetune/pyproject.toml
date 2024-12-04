@@ -10,8 +10,8 @@ torch = "^2.5.1"
 datasets = "^3.1.0"
 unsloth = "^2024.11.11"
 nltk = "^3.9.1"
-codebleu = "^0.7.0"
 pandas = "^2.2.3"
+crystalbleu = "^0.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.0.0"

@@ -2,7 +2,15 @@
 name = "llama-projects"
 version = "0.1.0"
 description = "Unified project for Llama fine-tuning, RAG, and dataset building"
-authors = ["Your Name <your.email@example.com>"]
+authors = ["Lorenzo Massone <lorenzo.massone@studio.unibo.it>"]
+
+[tool.pyright]
+include = ["src"]                                        # Directories to include in type checking
+exclude = ["**/node_modules", "**/__pycache__", "**/.*"]
+ignore = []                                              # Paths to ignore
+
+# Type checking mode
+typeCheckingMode = "off" # Can be "off", "basic", or "strict"
 
 [tool.poetry.dependencies]
 python = "^3.9"
@@ -10,7 +18,7 @@ python = "^3.9"
 torch = "^2.0.0"
 transformers = "^4.36.0"
 datasets = "^2.16.0"
-unsloth = {git = "https://github.com/unslothai/unsloth.git"}
+unsloth = { git = "https://github.com/unslothai/unsloth.git" }
 bitsandbytes = "^0.41.3"
 trl = "^0.7.6"
 
@@ -26,6 +34,7 @@ pandas = "^2.0.0"
 nltk = "^3.8.1"
 beautifulsoup4 = "^4.12.0"
 gradio = "^4.0.0"
+crystalbleu = "^0.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.0.0"
