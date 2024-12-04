@@ -1,9 +1,6 @@
 import json
 import re
 import os
-import tkinter as tk
-from tkinter import filedialog, messagebox, scrolledtext
-from tkinter import ttk
 
 def load_json(file_path):
     """
@@ -44,7 +41,7 @@ def extract_prompt_and_code(generated_text):
 
     return prompt, code
 
-def save_to_file(directory, idx, prompt, code):
+def save_to_file(directory, idx, prompt, code, file_extension='.txt'):
     """
     Save the prompt and code to separate files within the specified directory.
     
@@ -52,13 +49,14 @@ def save_to_file(directory, idx, prompt, code):
         directory (str): The directory where files will be saved.
         idx (int): The index of the current result (for file naming).
         prompt (str): The extracted prompt.
-        code (str): The extracted Scala code.
+        code (str): The extracted code.
+        file_extension (str): The extension for the code file (default: .txt).
     """
     os.makedirs(directory, exist_ok=True)
     
     # Define file paths
     prompt_file = os.path.join(directory, f'prompt_{idx}.txt')
-    code_file = os.path.join(directory, f'scala_code_{idx}.scala')
+    code_file = os.path.join(directory, f'code_{idx}{file_extension}')
     
     # Save prompt
     with open(prompt_file, 'w', encoding='utf-8') as pf:
@@ -67,24 +65,34 @@ def save_to_file(directory, idx, prompt, code):
     # Save code
     with open(code_file, 'w', encoding='utf-8') as cf:
         cf.write(code)
+    
+    return prompt_file, code_file
 
-def process_detailed_results(detailed_results, output_dir, status_display):
+def process_evaluation_results(json_path, output_dir, file_extension='.scala'):
     """
-    Process each detailed result to extract and save prompts and generated code.
+    Process evaluation results from a JSON file and save extracted prompts and code.
     
     Parameters:
-        detailed_results (list): List of detailed result dictionaries.
-        output_dir (str): Directory to save the extracted prompts and codes.
-        status_display (tk.Text): Text widget to display status messages.
+        json_path (str): Path to the JSON file containing evaluation results.
+        output_dir (str): Directory to save the extracted prompts and code.
+        file_extension (str): The extension for the code files (default: .scala).
+    
+    Returns:
+        tuple: (success: bool, message: str, saved_files: list)
     """
-    total = len(detailed_results)
-    if total == 0:
-        status_display.insert(tk.END, "No detailed results found in the JSON data.\n")
-        return
+    # Load JSON data
+    data, error = load_json(json_path)
+    if error:
+        return False, error, []
 
+    # Get detailed results
+    detailed_results = data.get('detailed_results', [])
+    if not detailed_results:
+        return False, "No detailed results found in the JSON data.", []
+
+    saved_files = []
     for idx, result in enumerate(detailed_results, 1):
         generated_text = result.get('generated', '')
-        
         prompt, code = extract_prompt_and_code(generated_text)
         
         if not prompt:
@@ -92,173 +100,21 @@ def process_detailed_results(detailed_results, output_dir, status_display):
         if not code:
             code = 'Generated code not found.'
         
-        # Display the extracted information
-        status_display.insert(tk.END, f"\nResult {idx} of {total}:\n")
-        status_display.insert(tk.END, "Prompt:\n")
-        status_display.insert(tk.END, f"{prompt}\n\n")
-        status_display.insert(tk.END, "Generated Scala Code:\n")
-        status_display.insert(tk.END, f"{code}\n")
-        status_display.insert(tk.END, "-" * 80 + "\n")
-        
         # Save to files
         try:
-            save_to_file(output_dir, idx, prompt, code)
-            status_display.insert(tk.END, f"Saved Result {idx} to files.\n")
+            prompt_file, code_file = save_to_file(output_dir, idx, prompt, code, file_extension)
+            saved_files.extend([prompt_file, code_file])
         except Exception as e:
-            status_display.insert(tk.END, f"Error saving Result {idx}: {e}\n")
-        
-        # Scroll to the end
-        status_display.see(tk.END)
-        status_display.update_idletasks()
+            return False, f"Error saving files for result {idx}: {str(e)}", saved_files
 
-    status_display.insert(tk.END, "\nProcessing Complete.\n")
-    status_display.see(tk.END)
-
-def select_json_file():
-    """
-    Open a file dialog to select a JSON file.
-    """
-    file_path = filedialog.askopenfilename(
-        title="Select JSON File",
-        filetypes=[("JSON Files", "*.json"), ("All Files", "*.*")]
-    )
-    return file_path
-
-def select_output_directory():
-    """
-    Open a directory dialog to select an output directory.
-    """
-    directory = filedialog.askdirectory(
-        title="Select Output Directory"
-    )
-    return directory
-
-def start_processing(json_path, output_dir, status_display, process_button):
-    """
-    Initiate the processing of the selected JSON file.
-    
-    Parameters:
-        json_path (str): Path to the JSON file.
-        output_dir (str): Directory to save the extracted data.
-        status_display (tk.Text): Text widget to display status messages.
-        process_button (tk.Button): Button widget to start processing.
-    """
-    if not json_path:
-        messagebox.showerror("Error", "Please select a JSON file to process.")
-        return
-
-    if not output_dir:
-        # Default output directory
-        output_dir = os.path.join(os.getcwd(), 'extracted_outputs')
-
-    # Disable the process button to prevent multiple clicks
-    process_button.config(state=tk.DISABLED)
-    status_display.insert(tk.END, f"Loading JSON file: {json_path}\n")
-    status_display.update_idletasks()
-
-    # Load JSON data
-    data, error = load_json(json_path)
-    if error:
-        status_display.insert(tk.END, f"{error}\n")
-        messagebox.showerror("Error", error)
-        process_button.config(state=tk.NORMAL)
-        return
-
-    # Get detailed results
-    detailed_results = data.get('detailed_results', [])
-    if not detailed_results:
-        msg = "No detailed results found in the JSON data."
-        status_display.insert(tk.END, f"{msg}\n")
-        messagebox.showwarning("Warning", msg)
-        process_button.config(state=tk.NORMAL)
-        return
-
-    # Start processing
-    status_display.insert(tk.END, "Starting extraction process...\n")
-    status_display.see(tk.END)
-    status_display.update_idletasks()
-
-    process_detailed_results(detailed_results, output_dir, status_display)
-
-    # Re-enable the process button
-    process_button.config(state=tk.NORMAL)
-
-def create_gui():
-    """
-    Create the GUI window using Tkinter.
-    """
-    root = tk.Tk()
-    root.title("LLM Output Extractor")
-    root.geometry("800x600")
-    root.resizable(False, False)
-
-    # Configure grid layout
-    root.columnconfigure(0, weight=1)
-    root.columnconfigure(1, weight=3)
-    root.columnconfigure(2, weight=1)
-
-    # JSON File Selection
-    json_label = ttk.Label(root, text="JSON File:")
-    json_label.grid(column=0, row=0, padx=10, pady=10, sticky=tk.W)
-
-    json_path_var = tk.StringVar()
-    json_entry = ttk.Entry(root, textvariable=json_path_var, width=60)
-    json_entry.grid(column=1, row=0, padx=10, pady=10, sticky=tk.W)
-
-    json_browse_button = ttk.Button(root, text="Browse", command=lambda: browse_json(json_path_var))
-    json_browse_button.grid(column=2, row=0, padx=10, pady=10)
-
-    # Output Directory Selection
-    output_label = ttk.Label(root, text="Output Directory:")
-    output_label.grid(column=0, row=1, padx=10, pady=10, sticky=tk.W)
-
-    output_dir_var = tk.StringVar()
-    output_entry = ttk.Entry(root, textvariable=output_dir_var, width=60)
-    output_entry.grid(column=1, row=1, padx=10, pady=10, sticky=tk.W)
-
-    output_browse_button = ttk.Button(root, text="Browse", command=lambda: browse_output(output_dir_var))
-    output_browse_button.grid(column=2, row=1, padx=10, pady=10)
-
-    # Start Processing Button
-    process_button = ttk.Button(root, text="Start Processing", command=lambda: start_processing(
-        json_path_var.get(),
-        output_dir_var.get(),
-        status_display,
-        process_button
-    ))
-    process_button.grid(column=1, row=2, padx=10, pady=20)
-
-    # Status Display Area
-    status_label = ttk.Label(root, text="Status:")
-    status_label.grid(column=0, row=3, padx=10, pady=10, sticky=tk.NW)
-
-    status_display = scrolledtext.ScrolledText(root, wrap=tk.WORD, width=90, height=25, state='normal')
-    status_display.grid(column=0, row=4, columnspan=3, padx=10, pady=10)
-
-    return root
-
-def browse_json(json_path_var):
-    """
-    Handle the browsing of the JSON file.
-    """
-    file_path = select_json_file()
-    if file_path:
-        json_path_var.set(file_path)
-
-def browse_output(output_dir_var):
-    """
-    Handle the browsing of the output directory.
-    """
-    directory = select_output_directory()
-    if directory:
-        output_dir_var.set(directory)
-
-def main():
-    """
-    Main function to create and run the GUI.
-    """
-    root = create_gui()
-    root.mainloop()
+    success_msg = f"Successfully processed {len(detailed_results)} results and saved to {output_dir}"
+    return True, success_msg, saved_files
 
 if __name__ == "__main__":
-    main()
+    # Example usage
+    json_path = "path/to/evaluation_results.json"
+    output_dir = "path/to/output"
+    success, message, files = process_evaluation_results(json_path, output_dir)
+    print(message)
+    if success:
+        print("Saved files:", files)

@@ -86,51 +86,74 @@ def setup_trainer(model, tokenizer, dataset, max_seq_length, output_dir="outputs
     
     return trainer
 
+# For fine tuning:
+#   poetry run python src/train.py
+# For loading fine-tuned model:
+#   poetry run python src/train.py --load-model ./outputs/finetuned_model
 def main():
+    import argparse
+    
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description='Train or load a fine-tuned model')
+    parser.add_argument('--load-model', type=str, help='Path to load fine-tuned model from', default=None)
+    parser.add_argument('--dataset-path', type=str, default="./data/dataset_llama.json", help='Path to training dataset')
+    parser.add_argument('--test-dataset-path', type=str, default="./data/test_set.json", help='Path to test dataset')
+    parser.add_argument('--output-dir', type=str, default="./outputs", help='Directory for output files')
+    args = parser.parse_args()
+    
     # Configuration
     max_seq_length = 2048
-    dataset_path = "./data/dataset_llama.json"
-    test_dataset_path = "./data/test_set.json"  # Path to test dataset
-    output_dir = "./outputs"
+    output_dir = args.output_dir
     
-    # Load model and tokenizer
+    # Load base model and tokenizer
     model, tokenizer = load_model_and_tokenizer(max_seq_length=max_seq_length)
     
-    # Evaluate model before fine-tuning
-    print("Evaluating model before fine-tuning...")
-    from evaluate import evaluate_model
-    evaluate_model(model, tokenizer, test_dataset_path, output_prefix="before_finetuning")
-    
-    # Prepare dataset
-    dataset = prepare_dataset(dataset_path, tokenizer)
-    
-    # Setup and start training
-    trainer = setup_trainer(model, tokenizer, dataset, max_seq_length, output_dir)
-    
-    # Track training time
-    import time
-    start_time = time.time()
-    training_output = trainer.train()
-    training_time = time.time() - start_time
-    
-    # Save training metrics
-    training_metrics = {
-        "training_time_seconds": training_time,
-        "training_stats": training_output.metrics if training_output else None
-    }
-    import json
-    with open(f"{output_dir}/training_metrics.json", "w") as f:
-        json.dump(training_metrics, f, indent=2)
-    
-    print(f"\nTraining completed in {training_time:.2f} seconds")
-    print(f"Training metrics saved to: {output_dir}/training_metrics.json")
-    
-    # Save the fine-tuned model
-    trainer.save_model(f"{output_dir}/finetuned_model")
-    
-    # Evaluate model after fine-tuning
-    print("Evaluating model after fine-tuning...")
-    evaluate_model(model, tokenizer, test_dataset_path, output_prefix="after_finetuning")
+    if args.load_model:
+        print(f"Loading fine-tuned model from {args.load_model}...")
+        # Load the PEFT model
+        from peft import PeftModel
+        model = PeftModel.from_pretrained(model, args.load_model)
+        
+        # Evaluate loaded model
+        print("Evaluating loaded fine-tuned model...")
+        from evaluate import evaluate_model
+        evaluate_model(model, tokenizer, args.test_dataset_path, output_prefix="loaded_finetuned")
+    else:
+        # Evaluate model before fine-tuning
+        print("Evaluating model before fine-tuning...")
+        from evaluate import evaluate_model
+        evaluate_model(model, tokenizer, args.test_dataset_path, output_prefix="before_finetuning")
+        
+        # Prepare dataset
+        dataset = prepare_dataset(args.dataset_path, tokenizer)
+        
+        # Setup and start training
+        trainer = setup_trainer(model, tokenizer, dataset, max_seq_length, output_dir)
+        
+        # Track training time
+        import time
+        start_time = time.time()
+        training_output = trainer.train()
+        training_time = time.time() - start_time
+        
+        # Save training metrics
+        training_metrics = {
+            "training_time_seconds": training_time,
+            "training_stats": training_output.metrics if training_output else None
+        }
+        import json
+        with open(f"{output_dir}/training_metrics.json", "w") as f:
+            json.dump(training_metrics, f, indent=2)
+        
+        print(f"\nTraining completed in {training_time:.2f} seconds")
+        print(f"Training metrics saved to: {output_dir}/training_metrics.json")
+        
+        # Save the fine-tuned model
+        trainer.save_model(f"{output_dir}/finetuned_model")
+        
+        # Evaluate model after fine-tuning
+        print("Evaluating model after fine-tuning...")
+        evaluate_model(model, tokenizer, args.test_dataset_path, output_prefix="after_finetuning")
 
 if __name__ == "__main__":
     main()

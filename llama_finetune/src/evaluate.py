@@ -6,7 +6,6 @@ import os
 from transformers import TextStreamer
 from unsloth import FastLanguageModel
 from unsloth.chat_templates import get_chat_template
-from crystalbleu import corpus_bleu
 
 nltk.download('punkt')
 nltk.download('punkt_tab')
@@ -17,10 +16,6 @@ def compute_bleu(reference, candidate):
     candidate_tokens = nltk.word_tokenize(candidate)
     smoothie = SmoothingFunction().method4
     return sentence_bleu([reference_tokens], candidate_tokens, smoothing_function=smoothie)
-
-def compute_crystal_bleu(reference, candidate):
-    """Compute CrystalBLEU score between reference and candidate code."""
-    return corpus_bleu(reference, candidate)
 
 def generate_code(model, tokenizer, prompts, max_new_tokens=256, temperature=1.5, min_p=0.1):
     """Generate code outputs for a list of prompts."""
@@ -48,11 +43,16 @@ def generate_code(model, tokenizer, prompts, max_new_tokens=256, temperature=1.5
     return generated_codes
 
 def evaluate_model(model, tokenizer, test_dataset_path, output_prefix="baseline"):
-    """Evaluate model performance using BLEU and CrystalBLEU metrics."""
+    """Evaluate model performance using BLEU metric."""
     from evaluate import compute_bleu
     from datasets import load_dataset
     import json
     from datetime import datetime
+    import sys
+    import os
+
+    # Add parent directory to path to import retrieve_model_output
+    sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
     # Load test dataset
     test_dataset = load_dataset('json', data_files=test_dataset_path, split='train')
@@ -91,22 +91,12 @@ def evaluate_model(model, tokenizer, test_dataset_path, output_prefix="baseline"
             'bleu': bleu
         })
 
-    # Calculate corpus-level CrystalBLEU
-    references = [[r.split()] for r in test_references]  # Create list of list of tokenized references
-    hypotheses = [g.split() for g in generated_codes]    # Create list of tokenized hypotheses
-    crystal_bleu = corpus_bleu(references, hypotheses)   # Compute corpus-level CrystalBLEU
-
     # Calculate average scores
     avg_bleu = sum(bleu_scores) / len(bleu_scores)
     
     avg_metrics = {
-        'bleu': avg_bleu,
-        'crystal_bleu': crystal_bleu
+        'bleu': avg_bleu
     }
-
-    # Add crystal_bleu to each result
-    for result in results:
-        result['crystal_bleu'] = crystal_bleu  # Same corpus-level score for all examples
 
     # Prepare evaluation results
     evaluation_results = {
@@ -118,17 +108,31 @@ def evaluate_model(model, tokenizer, test_dataset_path, output_prefix="baseline"
     # Create results directory if it doesn't exist
     os.makedirs('./data/results', exist_ok=True)
 
-    # Save results
+    # Save evaluation results
     output_file = f'./data/results/evaluation_results_{output_prefix}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json'
     with open(output_file, 'w') as f:
         json.dump(evaluation_results, f, indent=2)
 
     print(f"\nEvaluation Results ({output_prefix}):")
     print(f"Average BLEU Score: {avg_bleu:.4f}")
-    print(f"Average CrystalBLEU Score: {crystal_bleu:.4f}")
     print(f"Detailed results saved to: {output_file}")
 
+    extract_generated_code(output_file, output_prefix)
+
     return evaluation_results
+
+
+def extract_generated_code(output_file, output_prefix):
+    from retrieve_model_output import process_evaluation_results
+
+    # Extract and save generated code
+    generated_code_dir = os.path.join('./data/generated_code', output_prefix)
+    success, message, files = process_evaluation_results(output_file, generated_code_dir, file_extension='.txt')
+    if success:
+        print(f"Generated code samples saved to: {generated_code_dir}")
+    else:
+        print(f"Warning: Failed to extract code samples: {message}")
+
 
 def main():
     # Load model and tokenizer
