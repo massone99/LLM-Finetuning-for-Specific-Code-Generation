@@ -366,13 +366,13 @@ files = [
 
 [[package]]
 name = "cut-cross-entropy"
-version = "24.11.4"
+version = "24.12.1"
 description = "Code for cut cross entropy, a memory efficient implementation of linear-cross-entropy loss."
 optional = false
 python-versions = ">=3.10"
 files = [
-    {file = "cut_cross_entropy-24.11.4-py3-none-any.whl", hash = "sha256:00f8799dc6623bf4fdd2e35c2b2bd9bdbafc66d3342217cd31da5f87f7eabed6"},
-    {file = "cut_cross_entropy-24.11.4.tar.gz", hash = "sha256:93daf54d262bbd5298837b7fa35a96728e3434cfe91ed2cecdb656981bb8acf1"},
+    {file = "cut_cross_entropy-24.12.1-py3-none-any.whl", hash = "sha256:6ae7250f6faa36ba9acc13cd4c672d03ea2b53640f4af4093d52430081853917"},
+    {file = "cut_cross_entropy-24.12.1.tar.gz", hash = "sha256:8843bd8d564ebf006dcb95c8b170c1e02e8ab5d99fc748c74c8eaa10d5eee47f"},
 ]
 
 [package.dependencies]
@@ -380,7 +380,7 @@ torch = "*"
 triton = "*"
 
 [package.extras]
-all = ["accelerate (>=0.34.2)", "cut-cross-entropy[transformers]", "datasets (>=3.1.0)", "deepspeed (>=0.15.1)", "fire", "huggingface-hub (>=0.26.2)", "pandas", "tqdm"]
+all = ["accelerate (>=0.34.2)", "cut-cross-entropy[transformers]", "datasets (>=3.1.0)", "deepspeed (>=0.15.1)", "fire", "huggingface_hub (>=0.26.2)", "pandas", "tqdm"]
 dev = ["build", "cut-cross-entropy[all,test]", "pre-commit", "twine"]
 test = ["pytest"]
 transformers = ["transformers (>=4.44.2)"]
@@ -2225,13 +2225,13 @@ dev = ["pytest (>=6)", "pytest-cov", "pytest-timeout"]
 
 [[package]]
 name = "six"
-version = "1.16.0"
+version = "1.17.0"
 description = "Python 2 and 3 compatibility utilities"
 optional = false
-python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*"
+python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,>=2.7"
 files = [
-    {file = "six-1.16.0-py2.py3-none-any.whl", hash = "sha256:8abb2f1d86890a2dfb989f9a77cfcfd3e47c2a354b01111771326f8aa26e0254"},
-    {file = "six-1.16.0.tar.gz", hash = "sha256:1e61c37477a1626458e36f7b1d82aa5c9b094fa4802892072e49de9c60c4c926"},
+    {file = "six-1.17.0-py2.py3-none-any.whl", hash = "sha256:4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274"},
+    {file = "six-1.17.0.tar.gz", hash = "sha256:ff70335d468e7eb6ec65b95b99d3a2836546063f63acc5171de367e834932a81"},
 ]
 
 [[package]]
@@ -2677,13 +2677,13 @@ files = [
 
 [[package]]
 name = "unsloth"
-version = "2024.11.11"
+version = "2024.12.2"
 description = "2-5X faster LLM finetuning"
 optional = false
 python-versions = ">=3.9"
 files = [
-    {file = "unsloth-2024.11.11-py3-none-any.whl", hash = "sha256:48f487eb6f9e138aaa41c8f47a260a992fb5339f54a0fc271d4dd7c8982ff8ab"},
-    {file = "unsloth-2024.11.11.tar.gz", hash = "sha256:bb8430f52aaa45de12f1905573ae7f6f38c3eeb45d9e55257c5881fe42ddcca9"},
+    {file = "unsloth-2024.12.2-py3-none-any.whl", hash = "sha256:93d3229b44d908eab55d4872039f29a17e80dce1d77271573c6277047ed059e0"},
+    {file = "unsloth-2024.12.2.tar.gz", hash = "sha256:1a12717a6162c4e3ed08b66602bb42e3887a3952004aa331e892636b033b0c17"},
 ]
 
 [package.dependencies]
@@ -2766,13 +2766,13 @@ kaggle-new = ["bitsandbytes (>=0.43.3)", "unsloth[huggingface]"]
 
 [[package]]
 name = "unsloth-zoo"
-version = "2024.11.8"
+version = "2024.12.1"
 description = "Utils for Unsloth"
 optional = false
 python-versions = ">=3.9"
 files = [
-    {file = "unsloth_zoo-2024.11.8-py3-none-any.whl", hash = "sha256:53443b8791c5b9b2f1a22de33372ae4e483d72b86b0429876db27c62817e6029"},
-    {file = "unsloth_zoo-2024.11.8.tar.gz", hash = "sha256:75e762877587b2628e58b4b28a0f985804c97be784c720fff3406ef03b44f5db"},
+    {file = "unsloth_zoo-2024.12.1-py3-none-any.whl", hash = "sha256:0df60537eabe8a7f70c348fa0b0516b85a0c90abea768dfc0a2fce375df69b7c"},
+    {file = "unsloth_zoo-2024.12.1.tar.gz", hash = "sha256:441efadf5c65a345c8670c33e2817c1f68aa468083dbf034c89e8c8eee4f1d54"},
 ]
 
 [package.dependencies]
@@ -3076,4 +3076,4 @@ propcache = ">=0.2.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "54f5f28d45250e5dd47f3c43f16e2426b12a36bb4e534d2c348e169eb0e9b41e"
+content-hash = "c6ffdcf65a9878e8ecd9f6b2a1deb9b728991d07b35088940f89bb11a69d1e20"

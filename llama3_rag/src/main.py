@@ -1,11 +1,14 @@
 import gradio as gr
 import ollama
+import time
 from bs4 import BeautifulSoup as bs
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import WebBaseLoader
-from langchain_community.vectorstores import Chroma
-from langchain_community.embeddings import OllamaEmbeddings
+from langchain_community.vectorstores import FAISS
+from langchain_ollama import OllamaEmbeddings
 from langchain_community.llms import Ollama
+from typing import Dict, Any
+import numpy as np
 
 class RAGSystem:
     def __init__(self, urls):
@@ -26,8 +29,19 @@ class RAGSystem:
 
         # Create embeddings and vector store
         self.embeddings = OllamaEmbeddings(model="nomic-embed-text")
-        self.vectorstore = Chroma.from_documents(documents=splits, embedding=self.embeddings)
+        self.vectorstore = FAISS.from_documents(documents=splits, embedding=self.embeddings)
         self.retriever = self.vectorstore.as_retriever()
+
+    def calculate_relevancy_score(self, question: str, context: str) -> float:
+        """Calculate relevancy score between question and retrieved context using embedding similarity"""
+        question_embedding = self.embeddings.embed_query(question)
+        context_embedding = self.embeddings.embed_query(context)
+        
+        # Calculate cosine similarity
+        similarity = np.dot(question_embedding, context_embedding) / (
+            np.linalg.norm(question_embedding) * np.linalg.norm(context_embedding)
+        )
+        return float(similarity)
 
     def ollama_llm(self, question, context):
         formatted_prompt = f"Question: {question}\n\nContext: {context}"

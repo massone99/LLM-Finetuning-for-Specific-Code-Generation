@@ -12,6 +12,7 @@ unsloth = "^2024.11.11"
 nltk = "^3.9.1"
 pandas = "^2.2.3"
 crystalbleu = "^0.1"
+peft = "^0.13.2"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.0.0"

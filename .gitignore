@@ -12,3 +12,4 @@ llama_finetune/data/generated_code/*
 __pycache__
 */__pycache__/*
 *.pyc
+*/llama_finetune/src/__pycache__/evaluate.cpython-312.pyc
