@@ -13,3 +13,4 @@ __pycache__
 */__pycache__/*
 *.pyc
 */llama_finetune/src/__pycache__/evaluate.cpython-312.pyc
+llama3_rag/data/rag_results/*
