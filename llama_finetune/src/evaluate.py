@@ -16,8 +16,21 @@ def compute_bleu(reference, candidate):
     smoothie = SmoothingFunction().method4
     return sentence_bleu([reference_tokens], candidate_tokens, smoothing_function=smoothie)
 
-def generate_code(model, tokenizer, prompts, max_new_tokens=256, temperature=1.5, min_p=0.1):
-    """Generate code outputs for a list of prompts."""
+def generate_code(model, tokenizer, prompts, max_new_tokens=512, temperature=1.5, min_p=0.1):
+    """
+    Generate code outputs for a list of prompts.
+    Args:
+        model: The fine-tuned LLM model for code generation.
+        tokenizer: Tokenizer associated with the model.
+        prompts: List of input prompts to generate code for.
+        max_new_tokens: Maximum number of tokens to generate (default: 512).
+        temperature: Controls randomness in generation - higher values mean more diverse outputs (default: 1.5).
+        min_p: Minimum probability threshold for sampling tokens (default: 0.1).
+
+    Returns:
+        List of generated code outputs corresponding to each input prompt.
+    """
+
     FastLanguageModel.for_inference(model)
 
     generated_codes = []
