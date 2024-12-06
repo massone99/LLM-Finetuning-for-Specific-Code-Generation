@@ -1,8 +1,10 @@
 [tool.poetry]
 name = "llama-projects"
 version = "0.1.0"
+package-mode = false
 description = "Unified project for Llama fine-tuning, RAG, and dataset building"
 authors = ["Lorenzo Massone <lorenzo.massone@studio.unibo.it>"]
+
 
 [tool.pyright]
 include = ["src"]                                        # Directories to include in type checking
