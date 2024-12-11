@@ -14,7 +14,6 @@ from langchain_community.vectorstores import FAISS
 from langchain_ollama import OllamaEmbeddings
 from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
 
-# TODO: duplicated code from evaluate.py
 def compute_bleu(reference, candidate):
     """Compute BLEU score between reference and candidate code."""
     reference_tokens = nltk.word_tokenize(reference)
@@ -22,7 +21,6 @@ def compute_bleu(reference, candidate):
     smoothie = SmoothingFunction().method4
     return sentence_bleu([reference_tokens], candidate_tokens, smoothing_function=smoothie)
 
-# TODO: duplicated code from evaluate.py
 def evaluate_rag_system(rag_system, test_dataset_path):
         """Evaluate RAG system performance using BLEU metric."""
         # Load and prepare test dataset
@@ -85,6 +83,9 @@ def evaluate_rag_system(rag_system, test_dataset_path):
 
 class RAGSystem:
     def __init__(self, urls):
+        self.retriever = None
+        self.vectorstore = None
+        self.embeddings = None
         self.urls = urls if isinstance(urls, list) else [urls]
         self.setup_rag()
 
@@ -139,7 +140,7 @@ def main():
     rag_system = RAGSystem(urls)
 
     # Evaluate RAG system
-    evaluation_results = evaluate_rag_system(
+    evaluate_rag_system(
         rag_system,
         test_dataset_path="./data/test_set.json"
     )
