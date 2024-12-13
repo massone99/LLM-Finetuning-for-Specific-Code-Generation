@@ -1,0 +1,20 @@
+[tool.poetry]
+name = "build-checker"
+version = "0.1.0"
+description = ""
+authors = ["massone99 <lorenzo.studio@studio.unibo.it>"]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+build_checker = "build_checker.main:main"
+
+[tool.pyright]
+typeCheckingMode = "off"
+

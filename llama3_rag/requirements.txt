@@ -1,7 +1,0 @@
-langchain
-langchain-core
-langchain-community
-ollama
-beautifulsoup4
-chromadb
-gradio
