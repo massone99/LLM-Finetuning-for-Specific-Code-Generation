@@ -56,10 +56,6 @@ def process_projects(dataset, output_directory, build_flag, run_flag):
             if msg.get("from") == "assistant"
         ]
 
-        assistant_messages = assistant_messages[:1]
-
-        logger.debug(f"Assistant messages len: {len(assistant_messages)}")
-
         for code in assistant_messages:
             # Define the path to the Main.scala file
             main_scala_path = os.path.join(
@@ -85,7 +81,7 @@ def process_projects(dataset, output_directory, build_flag, run_flag):
     logger.info("All projects processed successfully.")
 
 
-def run_project(project_directory):
+def run_project(project_directory) -> bool:
     import subprocess
 
     logger.debug(f"Running project in directory: {project_directory}")
@@ -100,7 +96,9 @@ def run_project(project_directory):
         )
         logger.info(f"Run stdout: {result.stdout.decode('utf-8')}")
         logger.warning(f"Run stderr: {result.stderr.decode('utf-8')}")
+        return True
     except subprocess.CalledProcessError as e:
+        logger.error(f"Error running project: {e}")
         return log_execution_error(e)
     except FileNotFoundError:
         logger.error("sbt not found. Please ensure sbt is installed and in your PATH")

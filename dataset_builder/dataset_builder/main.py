@@ -10,6 +10,8 @@ class DatasetEditor:
 
         self.dataset = []
 
+        self.last_selected_conversation = None
+
         # Menu
         self.menu = tk.Menu(master)
         master.config(menu=self.menu)
@@ -116,7 +118,7 @@ class DatasetEditor:
             messagebox.showwarning("Input Error", "Both prompt and response are required.")
 
     def update_conversation(self):
-        selected = self.conversation_listbox.curselection()
+        selected = self.conversation_listbox.curselection() if self.conversation_listbox.curselection() else self.last_selected_conversation
         if selected:
             index = selected[0]
             prompt = self.prompt_text.get('1.0', tk.END).strip()
@@ -158,6 +160,7 @@ class DatasetEditor:
 
     def display_conversation(self, event):
         selected = self.conversation_listbox.curselection()
+        self.last_selected_conversation = selected
         if selected:
             index = selected[0]
             conversation = self.dataset[index]
