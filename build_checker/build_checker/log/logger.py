@@ -22,7 +22,7 @@ class ColorFormatter(logging.Formatter):
 
 # Configure the logging system
 console_handler = logging.StreamHandler()
-file_handler = logging.FileHandler("exec.log", mode="w")
+# file_handler = logging.FileHandler("exec.log", mode="w")
 
 # Create formatters
 color_formatter = ColorFormatter(
@@ -44,7 +44,7 @@ logger = logging.getLogger("GeneralLogger")
 logger.setLevel(logging.DEBUG)
 
 logger.addHandler(console_handler)
-logger.addHandler(file_handler)
+# logger.addHandler(file_handler)
 
 
 def process_items(items):

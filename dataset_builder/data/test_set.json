@@ -7,7 +7,7 @@
       },
       {
         "from": "assistant",
-        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\n// Define the EchoActor\nclass EchoActor extends Actor {\n  def receive: Receive = {\n    case msg => sender() ! msg\n  }\n}\n\n// Usage Example\nobject EchoTest extends App {\n  val system = ActorSystem(\"EchoSystem\")\n  val echo = system.actorOf(Props[EchoActor], \"echo\")\n\n  echo ! \"Test Message\"\n}"
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\n// Define the EchoActor\nclass EchoActor extends Actor {\n  def receive: Receive = {\n    case msg => sender() ! msg\n  }\n}\n\n// Usage Example\nobject EchoTest extends App {\n  val system = ActorSystem(\"EchoSystem\")\n  val echo = system.actorOf(Props[EchoActor](), \"echo\")\n\n  echo ! \"Test Message\"\n}"
       }
     ]
   },

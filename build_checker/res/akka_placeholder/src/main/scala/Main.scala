@@ -10,7 +10,7 @@ class EchoActor extends Actor {
 // Usage Example
 object EchoTest extends App {
   val system = ActorSystem("EchoSystem")
-  val echo = system.actorOf(Props[EchoActor], "echo")
+  val echo = system.actorOf(Props[EchoActor](), "echo")
 
   echo ! "Test Message"
 }

@@ -19,7 +19,7 @@ def select_file() -> str:
     """
     file_path = filedialog.askopenfilename(
         title="Select a File",
-        initialdir="python/build_checker/res",  # Starting directory set to current working directory
+        initialdir="../dataset_builder/data/",  # Starting directory set to current working directory
         filetypes=(("JSON files", "*.json"), ("All files", "*.*")),
     )
     if file_path:
@@ -99,7 +99,7 @@ def run_project(project_directory):
             stderr=subprocess.PIPE,
         )
         logger.info(f"Run stdout: {result.stdout.decode('utf-8')}")
-        logger.error(f"Run stderr: {result.stderr.decode('utf-8')}")
+        logger.warning(f"Run stderr: {result.stderr.decode('utf-8')}")
     except subprocess.CalledProcessError as e:
         return log_execution_error(e)
     except FileNotFoundError:
@@ -143,4 +143,4 @@ def main():
 
     dataset = load_json_dataset(selected_file_path)
     output_path = "res/akka_placeholder"
-    process_projects(dataset, output_path, build_flag=True, run_flag=True)
+    process_projects(dataset, output_path, build_flag=False, run_flag=True)
