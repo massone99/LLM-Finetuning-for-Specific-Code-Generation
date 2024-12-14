@@ -95,7 +95,6 @@ def run_project(project_directory):
             cwd=project_directory,
             # If the command launch fails, an exception is raised
             check=True,
-            # shell=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
@@ -125,7 +124,6 @@ def build_project(project_directory):
             cwd=project_directory,
             # If the command launch fails, an exception is raised
             check=True,
-            # shell=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
