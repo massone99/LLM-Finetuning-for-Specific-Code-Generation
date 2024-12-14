@@ -1,14 +1,15 @@
 import logging
 
+
 # Define color codes
 class ColorFormatter(logging.Formatter):
     COLORS = {
         'DEBUG': '\033[94m',  # Blue
-        'INFO': '\033[92m',   # Green
-        'WARNING': '\033[93m', # Yellow
-        'ERROR': '\033[91m',   # Red
-        'CRITICAL': '\033[95m',# Magenta
-        'RESET': '\033[0m'    # Reset
+        'INFO': '\033[92m',  # Green
+        'WARNING': '\033[93m',  # Yellow
+        'ERROR': '\033[91m',  # Red
+        'CRITICAL': '\033[95m',  # Magenta
+        'RESET': '\033[0m'  # Reset
     }
 
     def format(self, record):
@@ -17,6 +18,7 @@ class ColorFormatter(logging.Formatter):
         if levelname in self.COLORS:
             record.levelname = f"{self.COLORS[levelname]}{levelname}{self.COLORS['RESET']}"
         return super().format(record)
+
 
 # Configure the logging system
 console_handler = logging.StreamHandler()
@@ -34,7 +36,7 @@ file_formatter = logging.Formatter(
 
 # Set formatters
 console_handler.setFormatter(color_formatter)
-file_handler.setFormatter(file_formatter)
+# file_handler.setFormatter(file_formatter)
 
 # Configure logger
 logger = logging.getLogger("GeneralLogger")
@@ -43,6 +45,7 @@ logger.setLevel(logging.DEBUG)
 
 logger.addHandler(console_handler)
 logger.addHandler(file_handler)
+
 
 def process_items(items):
     logger.info(f"Starting to process {len(items)} items.")
@@ -62,6 +65,7 @@ def process_items(items):
             break
 
     logger.info("Processing completed.")
+
 
 if __name__ == "__main__":
     items = [2, 3, 4, 5, 6]

@@ -172,7 +172,7 @@ class DatasetEditor:
 
 def main():
     root = tk.Tk()
-    app = DatasetEditor(root)
+    DatasetEditor(root)
     root.mainloop()
 
 if __name__ == "__main__":

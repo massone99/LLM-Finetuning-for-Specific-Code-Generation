@@ -58,16 +58,13 @@ def process_projects(dataset, output_directory, build_flag, run_flag):
 
         assistant_messages = assistant_messages[:1]
 
+        logger.debug(f"Assistant messages len: {len(assistant_messages)}")
+
         for code in assistant_messages:
             # Define the path to the Main.scala file
             main_scala_path = os.path.join(
                 output_directory, "src/main/scala/Main.scala"
             )
-
-            logger.debug(f"Code to be written: {code}")
-
-            logger.debug(f"Does the file exist? {os.path.exists(main_scala_path)}")
-
             logger.debug("Path of scala file: " + main_scala_path)
 
             with open(main_scala_path, "w") as scala_file:
@@ -79,7 +76,43 @@ def process_projects(dataset, output_directory, build_flag, run_flag):
             if build_flag:
                 build_project(output_directory)
 
+            # Run the Scala project
+            if run_flag:
+                run_status = run_project(output_directory)
+                if not run_status:
+                    return
+
     logger.info("All projects processed successfully.")
+
+
+def run_project(project_directory):
+    import subprocess
+
+    logger.debug(f"Running project in directory: {project_directory}")
+    try:
+        result = subprocess.run(
+            ["sbt", "run"],
+            cwd=project_directory,
+            # If the command launch fails, an exception is raised
+            check=True,
+            # shell=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        logger.info(f"Run stdout: {result.stdout.decode('utf-8')}")
+        logger.error(f"Run stderr: {result.stderr.decode('utf-8')}")
+    except subprocess.CalledProcessError as e:
+        return log_execution_error(e)
+    except FileNotFoundError:
+        logger.error("sbt not found. Please ensure sbt is installed and in your PATH")
+        return False
+
+
+def log_execution_error(e):
+    logger.error(f"Error running project: {e}")
+    logger.error(f"Run stdout: {e.stdout.decode('utf-8')}")
+    logger.error(f"Run stderr: {e.stderr.decode('utf-8')}")
+    return False
 
 
 def build_project(project_directory):
@@ -87,8 +120,19 @@ def build_project(project_directory):
 
     logger.debug(f"Building project in directory: {project_directory}")
     try:
-        result = subprocess.run(['sbt', ''], stdout=subprocess.PIPE)
-        print(f"result.stdout: {result.stdout.decode('utf-8')}")
+        result = subprocess.run(
+            ["sbt", ""],
+            cwd=project_directory,
+            # If the command launch fails, an exception is raised
+            check=True,
+            # shell=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        logger.info(f"Build stdout: {result.stdout.decode('utf-8')}")
+        logger.error(f"Build stderr: {result.stderr.decode('utf-8')}")
+    except subprocess.CalledProcessError as e:
+        log_execution_error(e)
     except FileNotFoundError:
         logger.error("sbt not found. Please ensure sbt is installed and in your PATH")
         return False
@@ -101,4 +145,4 @@ def main():
 
     dataset = load_json_dataset(selected_file_path)
     output_path = "res/akka_placeholder"
-    process_projects(dataset, output_path, build_flag=True, run_flag=False)
+    process_projects(dataset, output_path, build_flag=True, run_flag=True)
