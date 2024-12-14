@@ -1,64 +1,47 @@
-import akka.actor.{Actor, ActorRef, ActorSystem, OneForOneStrategy, Props, SupervisorStrategy}
-import akka.actor.SupervisorStrategy._
-import scala.concurrent.duration._
+import akka.actor.{ActorSystem, Props}
+import akka.persistence.{PersistentActor, SnapshotOffer}
 
-// Define the FaultyChildActor
-class FaultyChildActor extends Actor {
-  def receive: Receive = {
-    case "causeNull" =>
-      println(s"${self.path.name} received 'causeNull' and will throw NullPointerException.")
-      throw new NullPointerException("Simulated NullPointerException.")
-    case msg =>
-      println(s"${self.path.name} received message: $msg")
+// Commands and Events
+sealed trait Command
+case class AddItem(item: String) extends Command
+case object GetItems extends Command
+
+sealed trait Event
+case class ItemAdded(item: String) extends Event
+
+// Define the Persistent Actor
+class ShoppingCart extends PersistentActor {
+  override def persistenceId: String = "shopping-cart-1"
+
+  var items: List[String] = Nil
+
+  def updateState(event: Event): Unit = event match {
+    case ItemAdded(item) => items ::= item
+  }
+
+  def receiveCommand: Receive = {
+    case AddItem(item) =>
+      persist(ItemAdded(item)) { event =>
+        updateState(event)
+        println(s"Added item: $item")
+      }
+    case GetItems =>
+      sender() ! items.reverse
+  }
+
+  def receiveRecover: Receive = {
+    case event: Event => updateState(event)
+    case SnapshotOffer(_, snapshot: List[String]) =>
+      items = snapshot
   }
 }
 
-// Define the EscalatingSupervisor Actor
-class EscalatingSupervisor extends Actor {
-  override val supervisorStrategy: SupervisorStrategy = OneForOneStrategy() {
-    case _: NullPointerException =>
-      println("EscalatingSupervisor: Escalating the failure.")
-      Escalate
-  }
+// Usage Example
+object PersistentActorApp extends App {
+  val system = ActorSystem("PersistentSystem")
+  val cart = system.actorOf(Props[ShoppingCart](), "shoppingCart")
 
-  // Create the child actor
-  val child: ActorRef = context.actorOf(Props[FaultyChildActor](), "faultyChildActor")
-
-  def receive: Receive = {
-    case msg =>
-      child.forward(msg)
-  }
-}
-
-// Define the TopLevelSupervisor Actor to handle escalation
-class TopLevelSupervisor extends Actor {
-  override val supervisorStrategy: SupervisorStrategy = OneForOneStrategy() {
-    case _: NullPointerException =>
-      println("TopLevelSupervisor: Stopping the failing child.")
-      Stop
-    case _: Exception =>
-      println("TopLevelSupervisor: Restarting the failing child.")
-      Restart
-  }
-
-  // Create the EscalatingSupervisor as child
-  val escalatingSupervisor: ActorRef = context.actorOf(Props[EscalatingSupervisor](), "escalatingSupervisor")
-
-  def receive: Receive = {
-    case msg =>
-      escalatingSupervisor.forward(msg)
-  }
-}
-
-// Usage Example (for testing purposes)
-object EscalationApp extends App {
-  val system = ActorSystem("EscalationSystem")
-  val topSupervisor = system.actorOf(Props[TopLevelSupervisor](), "topSupervisor")
-
-  // Send a message that causes the child to throw an exception
-  topSupervisor ! "causeNull"
-
-  // Allow some time for supervision to take effect before shutdown
-  Thread.sleep(1000)
-  system.terminate()
+  cart ! AddItem("Apple")
+  cart ! AddItem("Banana")
+  cart ! GetItems
 }

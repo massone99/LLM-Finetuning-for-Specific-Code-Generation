@@ -49,14 +49,20 @@ def process_projects(dataset, output_directory, build_flag, run_flag):
         logger.error("No dataset file provided. Stopping further processing.")
         return
     # Iterate over each conversation
-    for _, conversation in enumerate(dataset):
+    for idx, conversation in enumerate(dataset):
         assistant_messages = [
             msg["value"]
             for msg in conversation.get("conversations", [])
             if msg.get("from") == "assistant"
         ]
+        
+        human_prompts = [
+            msg["value"]
+            for msg in conversation.get("conversations", [])
+            if msg.get("from") == "human"
+        ]
 
-        for code in assistant_messages:
+        for code, human_prompt in zip(assistant_messages, human_prompts):
             # Define the path to the Main.scala file
             main_scala_path = os.path.join(
                 output_directory, "src/main/scala/Main.scala"
@@ -76,10 +82,15 @@ def process_projects(dataset, output_directory, build_flag, run_flag):
             if run_flag:
                 run_status = run_project(output_directory)
                 if not run_status:
+                    logger.error("Error running project. Prompt and code returning error:\n")
+                    logger.error(f"Idx conversation: {idx}")
+                    logger.error(f"Prompt: {human_prompt}")
+                    # logger.error(f"Code: {code}")
+                    
                     return
+            logger.info(f"Conversation idx: {idx+1} processed successfully.")
 
-    logger.info("All projects processed successfully.")
-
+    logger.info(f"{len(dataset)} conversations processed successfully.")
 
 def run_project(project_directory) -> bool:
     import subprocess

@@ -9,6 +9,7 @@ class DatasetEditor:
         master.title("LLM Fine-Tuning Dataset Editor")
 
         self.dataset = []
+        self.filtered_indices = []
 
         self.last_selected_conversation = None
 
@@ -60,8 +61,29 @@ class DatasetEditor:
 
         self.delete_button = tk.Button(self.button_frame, text="Delete", command=self.delete_conversation)
         self.delete_button.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        
+        # Search field and button
+        self.search_frame = tk.Frame(master)
+        self.search_frame.pack(fill=tk.X)
+
+        self.search_label = tk.Label(self.search_frame, text="Search:")
+        self.search_label.pack(side=tk.LEFT)
+
+        self.search_entry = tk.Entry(self.search_frame)
+        self.search_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+        self.search_button = tk.Button(self.search_frame, text="Search", command=self.search_conversations)
+        self.search_button.pack(side=tk.LEFT)
+        
+        self.empty_search_entry = tk.Button(self.search_frame, text="Clear", command=self.clear_search)
+        self.empty_search_entry.pack(side=tk.LEFT)
 
         self.current_file = None
+
+    def clear_search(self):
+        self.search_entry.delete(0, tk.END)
+        self.filtered_indices = []
+        self.refresh_listbox()
 
     def new_dataset(self):
         self.dataset = []
@@ -163,6 +185,10 @@ class DatasetEditor:
         self.last_selected_conversation = selected
         if selected:
             index = selected[0]
+            if self.filtered_indices:
+                # Use the index of where it would be in the list 
+                # but use it on the filtered one
+                index = self.filtered_indices[index]
             conversation = self.dataset[index]
             prompt = conversation["conversations"][0]["value"]
             response = conversation["conversations"][1]["value"]
@@ -172,6 +198,22 @@ class DatasetEditor:
 
             self.response_text.delete('1.0', tk.END)
             self.response_text.insert(tk.END, response)
+    
+    def search_conversations(self):
+        search_term = self.search_entry.get().strip().lower()
+        if not search_term:
+            messagebox.showwarning("Search Error", "Please enter a search term.")
+            return
+
+        self.conversation_listbox.delete(0, tk.END)
+        self.filtered_indices = []
+        for idx, conv in enumerate(self.dataset):
+            prompt = conv["conversations"][0]["value"]
+            response = conv["conversations"][1]["value"]
+            if search_term in prompt.lower() or search_term in response.lower():
+                display_text = prompt if len(prompt) <= 50 else prompt[:47] + '...'
+                self.conversation_listbox.insert(tk.END, display_text)
+                self.filtered_indices.append(idx)
 
 def main():
     root = tk.Tk()
