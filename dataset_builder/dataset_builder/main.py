@@ -42,11 +42,13 @@ class DatasetEditor:
         self.prompt_label = tk.Label(self.entry_frame, text="Prompt:")
         self.prompt_label.pack()
         self.prompt_text = tk.Text(self.entry_frame, height=10)
+        self.prompt_clear_button = tk.Button(self.entry_frame, text="Clear", command=lambda: self.prompt_text.delete('1.0', tk.END))
         self.prompt_text.pack(fill=tk.BOTH, expand=True)
 
         self.response_label = tk.Label(self.entry_frame, text="Response:")
         self.response_label.pack()
         self.response_text = tk.Text(self.entry_frame, height=10)
+        self.response_clear_button = tk.Button(self.entry_frame, text="Clear", command=lambda: self.response_text.delete('1.0', tk.END))
         self.response_text.pack(fill=tk.BOTH, expand=True)
 
         # Buttons
@@ -165,6 +167,8 @@ class DatasetEditor:
         selected = self.conversation_listbox.curselection()
         if selected:
             index = selected[0]
+            if self.filtered_indices:
+                index = self.filtered_indices[index]    
             del self.dataset[index]
             self.refresh_listbox()
             self.prompt_text.delete('1.0', tk.END)

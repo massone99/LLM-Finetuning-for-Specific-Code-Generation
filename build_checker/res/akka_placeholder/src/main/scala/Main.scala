@@ -1,47 +1,76 @@
-import akka.actor.{ActorSystem, Props}
-import akka.persistence.{PersistentActor, SnapshotOffer}
+import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 
-// Commands and Events
-sealed trait Command
-case class AddItem(item: String) extends Command
-case object GetItems extends Command
+// Define messages
+case class DataPoint(value: Double)
+case object ComputeAverage
+case class AverageResult(average: Double)
 
-sealed trait Event
-case class ItemAdded(item: String) extends Event
+// Define the DataAggregatorActor
+class DataAggregatorActor extends Actor {
+  var dataPoints: List[Double] = List.empty
 
-// Define the Persistent Actor
-class ShoppingCart extends PersistentActor {
-  override def persistenceId: String = "shopping-cart-1"
-
-  var items: List[String] = Nil
-
-  def updateState(event: Event): Unit = event match {
-    case ItemAdded(item) => items ::= item
-  }
-
-  def receiveCommand: Receive = {
-    case AddItem(item) =>
-      persist(ItemAdded(item)) { event =>
-        updateState(event)
-        println(s"Added item: $item")
+  def receive: Receive = {
+    case DataPoint(value) =>
+      dataPoints = value :: dataPoints
+      println(s"DataAggregatorActor: Received data point $value")
+    case ComputeAverage =>
+      if (dataPoints.nonEmpty) {
+        val average = dataPoints.sum / dataPoints.size
+        println(f"DataAggregatorActor: Computed average = $$${average}%.2f")
+        sender() ! AverageResult(average)
+      } else {
+        println("DataAggregatorActor: No data points to compute average.")
+        sender() ! AverageResult(0.0)
       }
-    case GetItems =>
-      sender() ! items.reverse
-  }
-
-  def receiveRecover: Receive = {
-    case event: Event => updateState(event)
-    case SnapshotOffer(_, snapshot: List[String]) =>
-      items = snapshot
+    case _ =>
+      println("DataAggregatorActor received unknown message.")
   }
 }
 
-// Usage Example
-object PersistentActorApp extends App {
-  val system = ActorSystem("PersistentSystem")
-  val cart = system.actorOf(Props[ShoppingCart](), "shoppingCart")
+// Define the DataSourceActor
+class DataSourceActor(aggregator: ActorRef) extends Actor {
+  def receive: Receive = {
+    case value: Double =>
+      println(s"DataSourceActor sending data point: $value")
+      aggregator ! DataPoint(value)
+    case _ =>
+      println("DataSourceActor received unknown message.")
+  }
+}
 
-  cart ! AddItem("Apple")
-  cart ! AddItem("Banana")
-  cart ! GetItems
+// Define the ResponderActor to handle average results
+class ResponderActor extends Actor {
+  def receive: Receive = {
+    case AverageResult(avg) =>
+      println(f"ResponderActor: The average of collected data points is $$${avg}%.2f")
+    case _ =>
+      println("ResponderActor received unknown message.")
+  }
+}
+
+// Usage Example (for testing purposes)
+object DataAggregatorApp extends App {
+  val system = ActorSystem("DataAggregatorSystem")
+
+  val aggregator = system.actorOf(Props(new DataAggregatorActor()), "aggregatorActor")
+  val responder = system.actorOf(Props(new ResponderActor()), "responderActor")
+
+  // Create data source actors
+  val source1 = system.actorOf(Props(new DataSourceActor(aggregator)), "source1")
+  val source2 = system.actorOf(Props(new DataSourceActor(aggregator)), "source2")
+  val source3 = system.actorOf(Props(new DataSourceActor(aggregator)), "source3")
+
+  // Send data points from sources
+  source1 ! 10.5
+  source2 ! 20.0
+  source3 ! 30.5
+  source1 ! 25.0
+  source2 ! 15.5
+
+  // Compute average
+  aggregator.tell(ComputeAverage, responder)
+
+  // Allow some time for processing before shutdown
+  Thread.sleep(1000)
+  system.terminate()
 }

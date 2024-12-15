@@ -1,14 +1,22 @@
-import json
-import os
 import tkinter as tk
 from tkinter import filedialog
-
+import hashlib
+import json
+import os
 from build_checker.log.logger import logger
 
-# Configuration parameters
-SBT_VERSION = "1.8.2"
-AKKA_VERSION = "2.6.20"
-SCALA_VERSION = "2.13.10"
+hash_file_path = "res/config/processed_hashes.json"
+
+
+def load_processed_hashes(hash_file_path):
+    if os.path.exists(hash_file_path):
+        with open(hash_file_path, "r") as f:
+            processed_hashes = set(json.load(f))
+        logger.info(f"Loaded {len(processed_hashes)} processed hashes.")
+    else:
+        processed_hashes = set()
+        logger.info("No processed hashes file found. Starting fresh.")
+    return processed_hashes
 
 
 def select_file() -> str:
@@ -43,11 +51,23 @@ def load_json_dataset(json_file_path) -> dict:
         logger.error(f"Error decoding JSON file: {e}")
         return None
 
+def compute_hash(prompt, code):
+    concatenated = (prompt + code).encode('utf-8')
+    return hashlib.sha256(concatenated).hexdigest()
+
+def save_processed_hashes(processed_hashes, hash_file_path):
+    with open(hash_file_path, "w") as f:
+        json.dump(list(processed_hashes), f)
+    logger.info(f"Saved {len(processed_hashes)} processed hashes.")
+
 
 def process_projects(dataset, output_directory, build_flag, run_flag):
     if dataset is None:
         logger.error("No dataset file provided. Stopping further processing.")
         return
+    
+    processed_hashes = load_processed_hashes(hash_file_path)
+    
     # Iterate over each conversation
     for idx, conversation in enumerate(dataset):
         assistant_messages = [
@@ -63,6 +83,11 @@ def process_projects(dataset, output_directory, build_flag, run_flag):
         ]
 
         for code, human_prompt in zip(assistant_messages, human_prompts):
+            current_hash = compute_hash(human_prompt, code)
+            if current_hash in processed_hashes:
+                logger.info(f"Skipping already processed pair at index {idx}.")
+                continue
+            
             # Define the path to the Main.scala file
             main_scala_path = os.path.join(
                 output_directory, "src/main/scala/Main.scala"
@@ -88,6 +113,8 @@ def process_projects(dataset, output_directory, build_flag, run_flag):
                     # logger.error(f"Code: {code}")
                     
                     return
+            processed_hashes.add(current_hash)
+            save_processed_hashes(processed_hashes, hash_file_path)
             logger.info(f"Conversation idx: {idx+1} processed successfully.")
 
     logger.info(f"{len(dataset)} conversations processed successfully.")
@@ -148,7 +175,8 @@ def build_project(project_directory):
 def main():
     root = tk.Tk()
     root.withdraw()  # Hide the root window
-    selected_file_path = select_file()
+    # selected_file_path = select_file()
+    selected_file_path = "../dataset_builder/data/synthetic_data/dataset_llama.json"
 
     dataset = load_json_dataset(selected_file_path)
     output_path = "res/akka_placeholder"
