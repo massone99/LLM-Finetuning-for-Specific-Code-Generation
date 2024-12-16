@@ -4,36 +4,28 @@ import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 class ChildActor(name: String) extends Actor {
   def receive: Receive = {
     case msg: String =>
-      println(s"ChildActor [$name] received message: $msg from ParentActor")
+      println(s"Child Actor [$name] received message: $msg from Parent.")
     case _ =>
-      println(s"ChildActor [$name] received unknown message.")
+      println(s"Child Actor [$name] received unknown message.")
   }
 }
 
 // Define the ParentActor
 class ParentActor extends Actor {
-  var childActors: scala.collection.mutable.Set[ActorRef] = Set.empty
+  var childActors: Set[ActorRef] = Set.empty
 
   def receive: Receive = {
     case name: String =>
-      if (childActors.contains(name)) {
-        println(s"ParentActor forward message to ChildActor [$name].")
-      } else {
-        println(s"ParentActor: Child actor with name '$name' does not exist.")
+      // Create a new child actor if it doesn't exist
+      if (!childActors.contains(name)) {
+        val child = context.actorOf(Props(new ChildActor(name)), name)
+        childActors += child
+        println(s"Parent Actor created Child Actor with name: '$name'")
       }
     case msg: String =>
-      childActors.foreach(_! msg)
+      childActors.forEach(_! msg)
     case _ =>
-      println("ParentActor received unknown message.")
-  }
-
-  // Create child actors
-  def createChildren(names: Array[String]) {
-    names.foreach(name => {
-      val child = context.actorOf(Props(new ChildActor(name)), name)
-      childActors += child
-      println(s"ParentActor created child actor with name '$name'.")
-    })
+      println("Parent Actor received unknown message.")
   }
 }
 
@@ -42,13 +34,15 @@ object ParentActorApp extends App {
   val system = ActorSystem("ParentActorSystem")
   val parent = system.actorOf(Props[ParentActor](), "parentActor")
 
-  // Create three child actors
-  parent.createChildren(Array("child1", "child2", "child3"))
+  // Create child actors
+  val child1 = parent.actorOf(Props[ChildActor]("child1"), "child1")
+  val child2 = parent.actorOf(Props[ChildActor]("child2"), "child2")
+  val child3 = parent.actorOf(Props[ChildActor]("child3"), "child3")
 
-  // Send messages to the ParentActor, which will be forwarded to child actors
+  // Send messages to child actors
   parent! "Hello Child 1!"
-  parent! "Hello Child 2 and 3!"
-  parent! "Message for ParentActor"
+  parent! "Hello Child 2!"
+  parent! "Hello Child 3!"
 
   // Allow some time for processing before shutdown
   Thread.sleep(1000)

@@ -1,50 +1,31 @@
-import akka.actor.{Actor, ActorRef, ActorSystem, Props}
-
-// Define messages
-case class IntMessage(num: Int)
-case class Response(msg: String)
+import akka.actor.{Actor, ActorSystem, Props}
 
 // Define the FilterActor
 class FilterActor extends Actor {
   def receive: Receive = {
-    case IntMessage(num) =>
+    case num: Int =>
       if (num > 10) {
-        sender()! Response(s"Accepted: $num")
+        sender()! s"Accepted: $num"
       } else {
-        sender()! Response(s"Rejected: $num")
+        sender()! s"Rejected: $num"
       }
     case _ =>
-      sender()! Response("Unknown message.")
+      sender()! "Unknown message."
   }
 }
 
 // Usage Example (for testing purposes)
 object FilterActorApp extends App {
   val system = ActorSystem("FilterActorSystem")
-  val filterActor = system.actorOf(Props(new FilterActor()), "filterActor")
+  val filterActor = system.actorOf(Props[FilterActor](), "filterActor")
 
-  // Define a simple responder actor to handle responses
-  class ResponderActor extends Actor {
-    def receive: Receive = {
-      case Response(msg) =>
-        println(s"ResponderActor received: $msg")
-      case _ =>
-        println("ResponderActor received unknown message.")
-    }
-  }
-
-  val responder = system.actorOf(Props(new ResponderActor()), "responderActor")
-
-  // Send integer messages
-  filterActor! IntMessage(12)
-  filterActor! IntMessage(7)
-  filterActor! IntMessage(12)
-
-  // Send non-integer messages
-  filterActor! "Fourteen"       // String
-  filterActor! 21.5              // Double
-  filterActor! true               // Boolean
-  filterActor! 'A'               // Character
+  // Send a mix of integers and other messages
+  filterActor! 5   // Rejected: 5
+  filterActor! 15   // Accepted: 15
+  filterActor! "Foo" // Unknown message.
+  filterActor! 20   // Accepted: 20
+  filterActor! 25   // Accepted: 25
+  filterActor! 8    // Rejected: 8
 
   // Allow some time for processing before shutdown
   Thread.sleep(1000)

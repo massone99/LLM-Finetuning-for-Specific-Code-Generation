@@ -3,31 +3,30 @@ import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 // Define messages
 case object Ping
 case object Pong
-case object RespondPing
 
 // Define the PingActor
-class PingActor(other: ActorRef) extends Actor {
+class PingActor(pongActor: ActorRef) extends Actor {
   def receive: Receive = {
     case Ping =>
-      println(s"${self.path.name} sends Ping to $other!")
-      other! Pong
+      println(s"${self.path.name} sends Ping to $pongActor")
+      pongActor! Pong
     case Pong =>
-      println(s"${self.path.name} received Pong. Sending another Ping.")
-      self! Ping
+      println(s"${self.path.name} received Pong from $pongActor. Sending another Ping.")
+      sender()! Ping
     case msg =>
       println(s"${self.path.name} received unknown message: $msg")
   }
 }
 
 // Define the PongActor
-class PongActor(responder: ActorRef) extends Actor {
+class PongActor(ref: ActorRef) extends Actor {
   def receive: Receive = {
     case Ping =>
-      println(s"${self.path.name} receives Ping. Sending Pong to $responder.")
-      responder! Pong
+      println(s"${self.path.name} received Ping from $ref. Sending Pong.")
+      sender()! Pong
     case Pong =>
-      println(s"${self.path.name} received Pong from $responder. Will respond with Ping.")
-      responder! Ping
+      println(s"${self.path.name} already received a Pong. Continuing exchange.")
+      self.forward(Ping) // Send Ping to continue
     case msg =>
       println(s"${self.path.name} received unknown message: $msg")
   }
@@ -37,10 +36,10 @@ class PongActor(responder: ActorRef) extends Actor {
 object PingPongApp extends App {
   val system = ActorSystem("PingPongSystem")
   
-  val pongActor = system.actorOf(Props(new PongActor(system.actorOf(Props(new PingActor(pongActor)))))(), "pongActor")
+  val pongActor = system.actorOf(Props[PongActor](ref = system.actorOf(Props[PingActor(pongActor)), "pongActor")), "pongActor")
   
-  // The PingActor initiates the ping-pong exchange
-  val pingActor = system.actorOf(Props(new PingActor(pongActor)), "pingActor")
+  val pingActor = system.actorOf(Props[PingActor(pongActor)], "pingActor")
   
+  pingActor! Ping
   pingActor! Ping
 }

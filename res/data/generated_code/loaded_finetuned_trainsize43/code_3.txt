@@ -1,39 +1,34 @@
-import akka.actor.{Actor, ActorSystem, Props}
+import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 
 // Define messages
 case class LogMessage(msg: String)
 
 // Define the LoggingActor
 class LoggingActor extends Actor {
-  implicit val logger:.Logger = Logger(context.name)
+  import context.dispatcher
 
   def receive: Receive = {
     case LogMessage(msg) =>
-      val logLevel = msg.toLowerCaseMatch("info" | "warn" | "error") match {
-        case "info" => Logger.info(s"${self.path.name} received info message: $msg")
-        case "warn" => Logger.warning(s"${self.path.name} received warn message: $msg")
-        case "error" => Logger.error(s"${self.path.name} received error message: $msg")
-        case _ =>
-          Logger.debug(s"${self.path.name} received unknown message: $msg")
+      val level = msg.toLowerCase.matchPattern {
+        case "info" => println("INFO: " + msg)
+        case "warn" => println("WARNING: " + msg)
+        case "error" => println("ERROR: " + msg)
+        case _ => println("DEBUG: " + msg)
       }
     case _ =>
-      Logger.debug("LoggingActor received unknown message.")
+      println("LoggingActor received unknown message.")
   }
 }
 
-// Usage Example (for testing purposes)
+// Usage Example
 object LoggingApp extends App {
   val system = ActorSystem("LoggingSystem")
-  val loggingActor = system.actorOf(Props[LoggingActor](), "loggingActor")
+  val loggingActor = system.actorOf(Props(new LoggingActor()), "loggingActor")
 
   // Send log messages
-  loggingActor! LogMessage("This is an INFO message.")
-  loggingActor! LogMessage("This is a WARNING message.")
-  loggingActor! LogMessage("This is an ERROR message.")
-  loggingActor! LogMessage("This is a debug message.")
-  loggingActor! LogMessage("This message type is unknown.")
-
-  // Allow some time for processing before shutdown
-  Thread.sleep(1000)
-  system.terminate()
+  loggingActor! LogMessage("This is an info message.")
+  loggingActor! LogMessage("This will be logged as a warning.")
+  loggingActor! LogMessage("This will cause an error since it doesn't match.")
+  loggingActor! LogMessage("This will be logged as debug.")
+  loggingActor! LogMessage("This is unknown.") // Should be debug
 }

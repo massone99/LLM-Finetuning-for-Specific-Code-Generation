@@ -1,21 +1,18 @@
-import akka.actor.{Actor, ActorSystem, Props}
+import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 
 // Define the HelloWorldActor
-class HelloWorldActor extends Actor {
-  def apply(): Unit = {
-    println("Hello from Akka Actor!")
+class HelloWorldActorsender extends Actor {
+  def receive: Receive = {
+    case "hello" => sender()! "Hello!"
+    case msg       => println(s"Received message: $msg")
   }
 }
 
 // Usage Example
 object HelloWorldApp extends App {
   val system = ActorSystem("HelloWorldSystem")
-  val helloActor = system.actorOf(Props(new HelloWorldActor()), "helloActor")
-
-  // Send a message to the actor
-  helloActor! ()
-
-  // Allow some time for processing before shutdown
-  Thread.sleep(1000)
-  system.terminate()
+  
+  val helloWorld = system.actorOf(Props[HelloWorldActorsender](), "helloWorldActor")
+  
+  helloWorld! "hello"
 }

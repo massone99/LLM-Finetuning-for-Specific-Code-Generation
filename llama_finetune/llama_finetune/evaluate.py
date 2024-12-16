@@ -138,7 +138,7 @@ def evaluate_model(model, tokenizer, test_dataset_path, train_size, output_prefi
 
     extract_generated_code(output_file, output_prefix)
 
-    return evaluation_results
+    return output_file
 
 
 def extract_generated_code(output_file, output_prefix):

@@ -1,33 +1,39 @@
-import akka.actor.{Actor, ActorSystem, OneForOne, Props, Schedule, Scheduler, Stopped}
-import akka.actor.Timers
+import akka.actor.{Actor, ActorSystem, Props, Cancellable}
 import scala.concurrent.duration._
+import akka.scheduler.ThreadPoolScheduler
 
 // Define the SelfMessageActor
 class SelfMessageActor extends Actor {
-  implicit val scheduler: Scheduler = context.scheduler
+  import context.dispatcher
+
+  // Schedule the next tick every second
+  val tickTimeout: FiniteDuration = 1.second
+  val nextTick: Cancellable = context.system.scheduler.scheduleWithFixedDelay(
+    initialDelay = 0.seconds,
+    delay = tickTimeout,
+    receiver = self,
+    message = "tick"
+  )
 
   def receive: Receive = {
     case "tick" =>
-      println("Tick received from SelfMessageActor.")
+      println("Tick received.")
     case msg =>
-      println(s"Received unknown message: $msg")
+      println(s"SelfMessageActor received message: $msg")
   }
 
-  // Schedule the first tick message
-  def start ticking: Unit = {
-    scheduler.scheduleOnce(1.second, self, "tick")
+  override def postStop(): Unit = {
+    nextTick.cancel()
+    super.postStop()
   }
 }
 
 // Usage Example (for testing purposes)
-object SelfMessageApp extends App {
-  val system = ActorSystem("SelfMessageSystem")
-  val selfActor = system.actorOf(Props[SelfMessageActor](), "selfActor")
+object SelfMessageActorApp extends App {
+  val system = ActorSystem("SelfMessageActorSystem")
+  val selfMessageActor = system.actorOf(Props(new SelfMessageActor()), "selfMessageActor")
 
-  // Start the ticking behavior
-  selfActor.start ticking
-
-  // Allow some time for ticking before shutdown
-  Thread.sleep(8000)
+  // Allow some time for processing before shutdown
+  Thread.sleep(10000)
   system.terminate()
 }

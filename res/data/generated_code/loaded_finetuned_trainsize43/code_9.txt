@@ -1,46 +1,38 @@
-import akka.actor.{Actor, ActorRef, ActorSystem, Props}
+import akka.actor.{Actor, ActorSystem, Props, Cancellable}
 import akka.actor.DeadLetter
-import akka.pattern.ask
-import akka.util.Timeout
-import scala.concurrent.duration._
-import scala.util.{Success, Failure}
 
 // Define the DeadLetterMonitor Actor
 class DeadLetterMonitor extends Actor {
   def receive: Receive = {
     case msg: String =>
       println(s"DeadLetterMonitor received unhandled message: $msg")
+    case _ =>
+      println("DeadLetterMonitor received unknown message.")
   }
 }
 
 // Usage Example (for testing purposes)
 object DeadLetterMonitorApp extends App {
   val system = ActorSystem("DeadLetterMonitorSystem")
-  val monitor = system.actorOf(Props[DeadLetterMonitor](), "deadLetterMonitor")
+  val deadLetterMonitor = system.actorOf(Props[DeadLetterMonitor](), "deadLetterMonitor")
 
-  implicit val timeout: Timeout = Timeout(5.seconds)
-
-  // Define a simple DeadLetter sender
-  class DeadLetterSender extends Actor {
+  // Define a simple DeadLetterHandler to send messages to the monitor
+  class DeadLetterHandler extends Actor {
     def receive: Receive = {
       case msg: String =>
-        println(s"DeadLetterSender sending message: $msg")
-        monitor! msg
+        println(s"Sending dead letter: $msg")
+        deadLetterMonitor! msg
+      case _ =>
+        println("DeadLetterHandler received unknown message.")
     }
   }
 
-  val deadLetterSender = system.actorOf(Props[DeadLetterSender](), "deadLetterSender")
+  val deadLetterHandler = system.actorOf(Props[DeadLetterHandler](), "deadLetterHandler")
 
-  // Attempt to send a message to a non-existent actor
-  val future = deadLetterSender? "UnknownMessage"
-  future.onComplete {
-    case Success(res) =>
-      println(s"DeadLetterMonitor received message: ${res.toString}")
-    case Failure(exc) =>
-      println(s"Error occurred: ${exc.getMessage}")
-  }
+  // Send a message to a non-existent actor (which should reach DeadLetterMonitor)
+  deadLetterHandler! "Hello DeadLetter!"
 
   // Allow some time for processing before shutdown
-  Thread.sleep(2000)
+  Thread.sleep(1000)
   system.terminate()
 }

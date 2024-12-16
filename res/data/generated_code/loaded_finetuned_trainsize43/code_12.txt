@@ -3,9 +3,13 @@ import akka.actor.{Actor, ActorSystem, Props}
 // Define the LifecycleActor
 class LifecycleActor extends Actor {
   def receive: Receive = {
-    case "start" => println("LifecycleActor started.")
-    case "shutdown" => println("LifecycleActor shutdown. This is a gracefull shutdown.")
-    case msg      => println(s"LifecycleActor received: $msg")
+    case "start" =>
+      println(s"${self.path.name} received'start' message.")
+    case "shutdown" =>
+      println(s"${self.path.name} received shutdown request. Stopping.")
+      context.stop(self)
+    case msg =>
+      println(s"${self.path.name} received unknown message: $msg")
   }
 }
 
@@ -15,9 +19,10 @@ object LifecycleApp extends App {
   val lifecycleActor = system.actorOf(Props[LifecycleActor](), "lifecycleActor")
 
   lifecycleActor! "start"
-
   lifecycleActor! "shutdown"
-  lifecycleActor! "message"
+  lifecycleActor! "unknown"
 
-  lifecycleActor! "another message"
+  lifecycleActor! "start" // Should trigger postStart
+
+  lifecycleActor! "shutdown" // Should be processed again, leading to shutdown
 }
