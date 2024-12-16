@@ -1,0 +1,1 @@
+Create an Akka Actor in Scala named DeadLetterMonitor that listens to the system's dead letters and logs any unhandled messages. Demonstrate sending a message to a non-existent actor and having the DeadLetterMonitor capture it.

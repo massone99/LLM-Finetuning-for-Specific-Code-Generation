@@ -1,0 +1,77 @@
+import akka.actor.{Actor, ActorSystem, Props, Cancellable}
+
+// Define the TrafficLightActor with the FSM trait
+class TrafficLightActor extends Actor with FSM ExtendState {
+  import context.dispatcher
+
+  // Define the states
+  case object Red
+  case object Green
+  case object Yellow
+
+  // Define the state transitions
+  def transition: StateTransition = {
+    case (Red, Green) =>
+      log(s"Transitioning from Red to Green. Duration: 2 seconds.")
+      self.state = Green
+    case (Green, Yellow) =>
+      log(s"Transitioning from Green to Yellow. Duration: 1 second.")
+      self.state = Yellow
+    case (Yellow, Red) =>
+      log(s"Transitioning from Yellow to Red. Duration: 3 seconds.")
+      self.state = Red
+    case _ =>
+      log("No transition needed.")
+  }
+
+  // Define the state changes
+  def changeState(newState: State) {
+    log(s"State changed to $(newState.name}")
+    self.state = newState
+    super.changeState(newState)
+    transition()
+  }
+
+  // Define the state durations
+  val redDuration:FiniteDuration = 3.seconds
+  val greenDuration: FiniteDuration = 2.seconds
+  val yellowDuration: FiniteDuration = 1.second
+
+  // Define the timer callbacks
+  def timerReceived(): Unit = {
+    log("Timer elapsed. State changes based on duration.")
+    self.state match {
+      case Red =>
+        log("Red state duration finished. Transitioning to Green.")
+        cancelTimer("RedTimer")
+        changeState(Green)
+      case Green =>
+        log("Green state duration finished. Transitioning to Yellow.")
+        cancelTimer("GreenTimer")
+        changeState(Yellow)
+      case Yellow =>
+        log("Yellow state duration finished. Transitioning back to Red.")
+        cancelTimer("YellowTimer")
+        changeState(Red)
+    }
+  }
+
+  // Define the timers
+  var redTimer: Cancellable = _
+  var greenTimer: Cancellable = _
+  var yellowTimer: Cancellable = _
+
+  override def postStop(): Unit = {
+    redTimer.cancel()
+    greenTimer.cancel()
+    yellowTimer.cancel()
+    super.postStop()
+  }
+
+  def startRedDuration(): Unit = {
+    redTimer = context.system.scheduler.scheduleWithFixedDelay(
+      initialDelay = 0.seconds,
+      delay = redDuration,
+      receiver = self,
+      message = "startRedDuration"
+    )

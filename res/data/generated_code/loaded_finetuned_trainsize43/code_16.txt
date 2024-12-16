@@ -1,0 +1,54 @@
+import akka.actor.{Actor, ActorRef, ActorSystem, Props}
+
+// Define the ResponderActor
+class ResponderActor extends Actor {
+  def receive: Receive = {
+    case "Greet" =>
+      sender()! "Hello, Greet Message!"
+    case msg =>
+      println(s"ResponderActor received unknown message: $msg")
+  }
+}
+
+// Define the GreetApp
+object GreetApp extends App {
+  val system = ActorSystem("ResponderSystem")
+  
+  // Create a ResponderActor
+  val responder = system.actorOf(Props[ResponderActor](), "responderActor")
+  
+  // Define a simple responder actor to send responses
+  class Responder extends Actor {
+    def receive: Receive = {
+      case msg: String =>
+        println(s"Responder sends response: '$msg'")
+        responder! msg
+      case _
+        => println("Responder received unknown message.")
+    }
+  }
+
+  // Create a Responder Actor
+  val simpleResponder = system.actorOf(Props[Responder](), "simpleResonderActor")
+  
+  // Define a simple Greeting Sender
+  class GreetingSender(responder: ActorRef) extends Actor {
+    def receive: Receive = {
+      case name: String =>
+        println(s"GreetingSender: Sending Greet message to Responder...")
+        responder! s"Greet,$name"
+      case msg =>
+        println(s"GreetingSender received unknown message: $msg")
+    }
+  }
+
+  // Create a Greeting Sender
+  val greetingSender = system.actorOf(Props(new GreetingSender(responder)), "greetingSender")
+
+  // Send a Greet Message
+  greetingSender! "Alice"
+
+  // Allow some time for processing before shutdown
+  Thread.sleep(1000)
+  system.terminate()
+}

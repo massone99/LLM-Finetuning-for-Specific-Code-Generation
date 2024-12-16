@@ -120,10 +120,10 @@ def evaluate_model(model, tokenizer, test_dataset_path, train_size, output_prefi
     }
 
     # Create results directory if it doesn't exist
-    os.makedirs('./data/results', exist_ok=True)
+    os.makedirs('../res/data/results', exist_ok=True)
 
     # Save evaluation results
-    output_file = f'./data/results/evaluation_results_{output_prefix}_{datetime.now().strftime("%Y%m%d")}.json'
+    output_file = f'./res/data/results/evaluation_results_{output_prefix}_{datetime.now().strftime("%Y%m%d")}.json'
     with open(output_file, 'w') as f:
         json.dump(evaluation_results, f, indent=2)
 
@@ -145,7 +145,7 @@ def extract_generated_code(output_file, output_prefix):
     from retrieve_model_output import process_evaluation_results
 
     # Extract and save generated code
-    generated_code_dir = os.path.join('./data/generated_code', output_prefix)
+    generated_code_dir = os.path.join('../res/data/generated_code', output_prefix)
     success, message, files = process_evaluation_results(output_file, generated_code_dir, file_extension='.txt')
     if success:
         print(f"Generated code samples saved to: {generated_code_dir}")

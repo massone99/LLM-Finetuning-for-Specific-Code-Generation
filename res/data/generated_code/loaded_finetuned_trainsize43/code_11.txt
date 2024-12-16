@@ -1,0 +1,56 @@
+import akka.actor.{Actor, ActorState, ActorSystem, Props}
+
+// Define the SwitchActor
+class SwitchActor extends Actor {
+  var state: State = State.Happy
+
+  def receive: Receive = {
+    case "sad" =>
+      state = State.Sad
+      println(s"SwitchActor is now $state")
+    case msg =>
+      println(s"SwitchActor is in state $state, responding to '${msg}'")
+      "I'm " + state.name.lowerCase + "!"
+  }
+
+  // Define the different states
+  case object Happy extends State
+  case object Sad extends State
+
+  // Define the State Enum
+ sealed trait State
+ case class Happy extends State
+ case class Sad extends State
+
+  // Define the State Switcher
+ class StateSwitcher(actor: Actor) extends Actor {
+    def receive: Receive = {
+      case state: State =>
+        actor! state
+    }
+  }
+
+// Usage Example (for testing purposes)
+object SwitchActorApp extends App {
+  val system = ActorSystem("SwitchActorSystem")
+  val switchActor = system.actorOf(Props[SwitchActor](), "switchActor")
+
+  // Create a state switcher to manage states
+  val stateSwitcher = system.actorOf(Props(new StateSwitcher(switchActor)), "stateSwitcher")
+
+  // Initialize state to Happy
+  stateSwitcher! SwitchActor.Happy
+
+  // Switch to Sad
+  stateSwitcher! SwitchActor.Sad
+
+  // Switch back to Happy
+  stateSwitcher! SwitchActor.Happy
+
+  // Send a mixed message
+  switchActor! "Mixed"
+
+  // Allow some time for processing before shutdown
+  Thread.sleep(1000)
+  system.terminate()
+}

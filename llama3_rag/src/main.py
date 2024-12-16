@@ -76,8 +76,8 @@ def evaluate_rag_system(rag_system, test_dataset_path):
             json.dump(evaluation_results, f, indent=2)
 
         print(f"\nRAG Evaluation Results:")
-        print(f"Average BLEU Score: {avg_bleu:.4f}")
-        print(f"Detailed results saved to: {output_file}")
+        print(f"\nAverage BLEU Score: {avg_bleu:.4f}")
+        print(f"\nDetailed results saved to: {output_file}")
 
         return evaluation_results
 

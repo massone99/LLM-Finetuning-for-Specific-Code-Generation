@@ -1,0 +1,72 @@
+import akka.actor.{Actor, ActorSystem, Props, Cancellable}
+
+// Define custom messages
+case class HighPriority(msg: String)
+case class LowPriority(msg: String)
+
+// Define the PriorityActor
+class PriorityActor extends Actor {
+  implicit val scheduler: javax.swing.Timer = javax.swing.Timer(1000)
+  val priorityMailbox: Mailbox = new Mailbox("priority")
+
+  def receive: Receive = {
+    case msg: HighPriority =>
+      priorityMailbox.post(msg)
+    case msg: LowPriority =>
+      priorityMailbox.post(msg)
+    case _ =>
+      println("PriorityActor received unknown message.")
+  }
+
+  // Define the custom Mailbox
+  class Mailbox(name: String) extends Actor {
+    val priority: Option[ActorRef] = None
+    val lowPriority: Option[ActorRef] = None
+
+    def post(msg: Message): Unit = {
+      msg.match(
+        case HighPriority(ref) =>
+          if (priority.isEmpty) {
+            priority = Some(ref)
+            ref! msg
+          } else {
+            println(s"$this cannot add a HighPriority message. Priority Mailbox is full.")
+          }
+        case LowPriority(ref) =>
+          if (lowPriority.isEmpty) {
+            lowPriority = Some(ref)
+            ref! msg
+          } else {
+            println(s"$this cannot add a LowPriority message. Priority Mailbox is full.")
+          }
+      }
+    }
+  }
+
+  // Define the PriorityResolverActor
+  class PriorityResolver extends Actor {
+    def receive: Receive = {
+      case (name, priority) =>
+        context.actorOf(Props(new PriorityActor()), name)
+      case _ =>
+        println("PriorityResolver received unknown message.")
+    }
+  }
+
+  // Usage Example (for testing purposes)
+  object PriorityApp extends App {
+    val system = ActorSystem("PrioritySystem")
+    val resolver = system.actorOf(Props(new PriorityResolver()), "resolver")
+
+    // Define message resolvers
+    val highResolver = system.actorOf(Props(new PriorityResolver()), "highResolver")
+    val lowResolver = system.actorOf(Props(new PriorityResolver()), "lowResolver")
+
+    // Define message senders
+    val highSender = system.actorOf(Props(new Actor {}), "highSender")
+    val lowSender = system.actorOf(Props(new Actor {}), "lowSender")
+
+    // Define message processing
+    highSender! HighPriority("Process high message first.")
+    highSender! LowPriority("Process low message after high.")
+    low

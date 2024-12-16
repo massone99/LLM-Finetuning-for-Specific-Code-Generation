@@ -1,0 +1,1 @@
+Design an Akka Actor in Scala named ParentActor that creates and manages multiple child actors named ChildActor. The ParentActor should forward any received message to all its child actors. Demonstrate the creation of three child actors and sending messages through the ParentActor.

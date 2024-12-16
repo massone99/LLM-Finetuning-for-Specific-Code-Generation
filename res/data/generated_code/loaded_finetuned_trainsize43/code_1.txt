@@ -1,0 +1,23 @@
+import akka.actor.{Actor, ActorSystem, Props}
+
+// Define the EchoActor
+class EchoActor extends Actor {
+  def receive: Receive = {
+    case msg: String =>
+      println(s"EchoActor received: '$msg' from ${sender().path.name}")
+      sender()! s"You echoed back: '$msg'"
+    case _ =>
+      println("EchoActor received unknown message.")
+  }
+}
+
+// Usage Example
+object EchoApp extends App {
+  val system = ActorSystem("EchoSystem")
+  val echoActor = system.actorOf(Props[EchoActor](), "echoActor")
+
+  // Send messages to the echo actor
+  echoActor! "Hello, Akka!"
+  echoActor! "This should be echoed back!"
+  echoActor! "Multi-message echo!"
+}

@@ -1,0 +1,56 @@
+import akka.actor.{Actor, ActorRef, ActorSystem, Props}
+
+// Define the ChildActor
+class ChildActor(name: String) extends Actor {
+  def receive: Receive = {
+    case msg: String =>
+      println(s"ChildActor [$name] received message: $msg from ParentActor")
+    case _ =>
+      println(s"ChildActor [$name] received unknown message.")
+  }
+}
+
+// Define the ParentActor
+class ParentActor extends Actor {
+  var childActors: scala.collection.mutable.Set[ActorRef] = Set.empty
+
+  def receive: Receive = {
+    case name: String =>
+      if (childActors.contains(name)) {
+        println(s"ParentActor forward message to ChildActor [$name].")
+      } else {
+        println(s"ParentActor: Child actor with name '$name' does not exist.")
+      }
+    case msg: String =>
+      childActors.foreach(_! msg)
+    case _ =>
+      println("ParentActor received unknown message.")
+  }
+
+  // Create child actors
+  def createChildren(names: Array[String]) {
+    names.foreach(name => {
+      val child = context.actorOf(Props(new ChildActor(name)), name)
+      childActors += child
+      println(s"ParentActor created child actor with name '$name'.")
+    })
+  }
+}
+
+// Usage Example (for testing purposes)
+object ParentActorApp extends App {
+  val system = ActorSystem("ParentActorSystem")
+  val parent = system.actorOf(Props[ParentActor](), "parentActor")
+
+  // Create three child actors
+  parent.createChildren(Array("child1", "child2", "child3"))
+
+  // Send messages to the ParentActor, which will be forwarded to child actors
+  parent! "Hello Child 1!"
+  parent! "Hello Child 2 and 3!"
+  parent! "Message for ParentActor"
+
+  // Allow some time for processing before shutdown
+  Thread.sleep(1000)
+  system.terminate()
+}

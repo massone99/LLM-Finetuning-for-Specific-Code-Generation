@@ -1,0 +1,48 @@
+import akka.actor.{Actor, ActorRef, ActorSystem, OneForOneStrategy, Prop, SupervisorStrategy,terminate}
+import akka.actor.SupervisorStrategy._
+
+import scala.concurrent.duration._
+import scala.util.{Try, Success, Failure}
+
+// Define the Child Actor
+class FaultyChildActor extends Actor {
+  def receive: Receive = {
+    case "causeNull" =>
+      throw new NullPointerException("ChildActor failed with causeNull message.")
+    case msg =>
+      println(s"Child Actor received message: $msg")
+  }
+}
+
+// Define the Supervisor Actor
+class EscalatingSupervisor extends Actor {
+  override val supervisorStrategy: SupervisorStrategy = OneForOneStrategy(
+    maxNrOfRetries = 2,
+    withinTimeRange = 1.minute
+  ) {
+    case _: Exception =>
+      println("SupervisorEscalating: Exception occurred, escalating to parent.")
+      terminate()
+  }
+
+  val child: ActorRef = context.actorOf(Prop[FaultyChildActor](), "faultyChildActor")
+
+  def receive: Receive = {
+    case msg =>
+      child.forward(msg)
+  }
+}
+
+// Usage Example
+object EscalatingSupervisorApp extends App {
+  val system = ActorSystem("EscalatingSupervisorSystem")
+  val supervisor = system.actorOf(Prop[EscalatingSupervisor](), "escalatingSupervisor")
+
+  // Send messages to the child actor
+  supervisor! "causeNull"         // Should fail with NullPointerException
+  supervisor! "shouldNotFailHere" // Should pass without issue
+
+  // Allow some time for processing before shutdown
+  Thread.sleep(1000)
+  system.terminate()
+}

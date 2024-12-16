@@ -1,0 +1,60 @@
+import akka.actor.{Actor, ActorRef, ActorSystem, Props}
+
+// Define messages
+case object Initialize
+case class ProcessMessage(msg: String)
+
+// Define the StashingActor
+class StashingActor extends Actor {
+  var stash: Seq[ProcessMessage] = Seq.empty
+
+  def receive: Receive = {
+    case msg =>
+      stash = stash :+ msg
+      println(s"StashingActor received message: ${msg.msg}")
+    case Initialize =>
+      println("StashingActor initializing...")
+      for (msgInstance <- stash) {
+        self.tell(ProcessMessage(msgInstance), self)
+      }
+      stash = Seq.empty
+      context.become(normal)
+    case msg =>
+      println(s"StashingActor processed message: $msg")
+    case _ =>
+      println("StashingActor received unknown message.")
+  }
+
+  val normal = receive {
+    case ProcessMessage(msg) =>
+      println(s"StashingActor processing stashed message: $msg")
+    case msg =>
+      println(s"StashingActor received message: $msg")
+  }
+
+  override def postStop(): Unit = {
+    println("StashingActor has stopped.")
+  }
+}
+
+// Usage Example (for testing purposes)
+object StashingActorApp extends App {
+  val system = ActorSystem("StashingActorSystem")
+  val stashingActor = system.actorOf(Props[StashingActor](), "stashingActor")
+
+  // Send messages before initialization
+  stashingActor! ProcessMessage("First stash message")
+  stashingActor! ProcessMessage("Second stash message")
+
+  // Send initialize message
+  stashingActor! Initialize
+
+  // Send messages after initialization
+  stallingActor! ProcessMessage("Processed via Initialize")
+  stallingActor! ProcessMessage("Third stash message")
+  stallingActor! ProcessMessage("Fourth stash message")
+
+  // Allow some time for processing before shutdown
+  Thread.sleep(1000)
+  system.terminate()
+}

@@ -1,0 +1,1 @@
+Implement an Akka Actor in Scala named SwitchActor that starts in a "happy" state. When it receives a "sad" message, it switches to a "sad" state, and vice versa. In the "happy" state, it should respond to any message with "I'm happy!", and in the "sad" state, it should respond with "I'm sad." Demonstrate toggling between states.

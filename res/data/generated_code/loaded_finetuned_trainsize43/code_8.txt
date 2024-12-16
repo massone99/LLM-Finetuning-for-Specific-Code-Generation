@@ -1,0 +1,46 @@
+import akka.actor.{Actor, ActorRef, ActorSystem, Props}
+
+// Define messages
+case object Ping
+case object Pong
+case object RespondPing
+
+// Define the PingActor
+class PingActor(other: ActorRef) extends Actor {
+  def receive: Receive = {
+    case Ping =>
+      println(s"${self.path.name} sends Ping to $other!")
+      other! Pong
+    case Pong =>
+      println(s"${self.path.name} received Pong. Sending another Ping.")
+      self! Ping
+    case msg =>
+      println(s"${self.path.name} received unknown message: $msg")
+  }
+}
+
+// Define the PongActor
+class PongActor(responder: ActorRef) extends Actor {
+  def receive: Receive = {
+    case Ping =>
+      println(s"${self.path.name} receives Ping. Sending Pong to $responder.")
+      responder! Pong
+    case Pong =>
+      println(s"${self.path.name} received Pong from $responder. Will respond with Ping.")
+      responder! Ping
+    case msg =>
+      println(s"${self.path.name} received unknown message: $msg")
+  }
+}
+
+// Usage Example (for testing purposes)
+object PingPongApp extends App {
+  val system = ActorSystem("PingPongSystem")
+  
+  val pongActor = system.actorOf(Props(new PongActor(system.actorOf(Props(new PingActor(pongActor)))))(), "pongActor")
+  
+  // The PingActor initiates the ping-pong exchange
+  val pingActor = system.actorOf(Props(new PingActor(pongActor)), "pingActor")
+  
+  pingActor! Ping
+}

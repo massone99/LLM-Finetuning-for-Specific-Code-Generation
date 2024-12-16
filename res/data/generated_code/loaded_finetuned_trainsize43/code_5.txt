@@ -1,0 +1,65 @@
+import akka.actor.{Actor, ActorRef, ActorSystem, Props}
+import akka.actor.CircuitBreaker
+import scala.concurrent.duration._
+import akka.pattern.ask
+import scala.concurrent.ExecutionContext
+import akka.util.Timeout
+
+// Define messages
+case class CallService(name: String)
+case class ServiceResponse(name: String, result: String)
+case class ServiceFailure(name: String, reason: String)
+
+// Define the CircuitBreakerActor
+class CircuitBreakerActor extends Actor {
+  import context.dispatcher
+
+  var state = "open"
+  val circuitBreaker: CircuitBreaker = context.actorOf(Props[CircuitBreakerActor.CircuitBreakerActor.CircuitBreaker]], "circuitBreaker")
+
+  def receive: Receive = {
+    case CallService(name) =>
+      circuitBreaker.state.name = name
+      circuitBreaker.switch()
+      context.system.scheduler.scheduleOnce(2.seconds, sender(), "serviceCall")
+    case "serviceCall" =>
+      state = "open"
+      println(s"CircuitBreakerActor: Attempting service call to [$name]...")
+      val future = context.actorOF(Props(new ServiceActor(name)), "serviceActor")
+      val result = future? "process"
+      result.map({
+        case ServiceResponse(name, result) =>
+          println(s"CircuitBreakerActor: [$name] responded with '${result}'")
+          state = "closed"
+        case ServiceFailure(name, reason) =>
+          println(s"CircuitBreakerActor: [$name] failed with reason '$reason'")
+          state = "broken"
+      })
+    case _ =>
+      println("CircuitBreakerActor received unknown message.")
+  }
+
+  // Define the ServiceActor
+  class ServiceActor(name: String) extends Actor {
+    def receive: Receive = {
+      case msg: String =>
+        // Simulate a simple service processing
+        if (name == "validService") {
+          println(s"ServiceActor [${name}] processing request.")
+          send("Service processed your request successfully.")
+        } else {
+          println(s"ServiceActor [${name}] processing request.")
+          send("Service failed to process your request.")
+        }
+      case _ =>
+        println("ServiceActor received unknown message.")
+    }
+  }
+}
+
+// Usage Example
+object CircuitBreakerApp extends App {
+  val system = ActorSystem("CircuitBreakerSystem")
+  val circuitBreaker = system.actorOf(Props[Actor](new CircuitBreakerActor()), "circuitBreakerActor")
+
+  // Define a simple

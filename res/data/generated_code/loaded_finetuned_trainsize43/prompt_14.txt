@@ -1,0 +1,1 @@
+Create an Akka Actor in Scala named SelfMessageActor that schedules itself to receive a "tick" message every second. Upon receiving a "tick", it should print "Tick received" and continue scheduling the next tick. Demonstrate the actor's ticking behavior.

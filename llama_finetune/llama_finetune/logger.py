@@ -23,4 +23,9 @@ class FileLogger:
         self.write(text, heading)
         print(text, end='')
 
-file_logger = FileLogger('results.adoc')
+import os
+
+# Print the current working directory
+print("Current working directory:", os.getcwd())
+
+file_logger = FileLogger('./res/report/results.adoc')

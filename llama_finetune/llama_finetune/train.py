@@ -107,9 +107,9 @@ def main():
     # Parse command line arguments
     parser = argparse.ArgumentParser(description='Train or load a fine-tuned model')
     parser.add_argument('--load-model', type=str, help='Path to load fine-tuned model from', default=None)
-    parser.add_argument('--dataset-path', type=str, default="./data/dataset_llama.json", help='Path to training dataset')
-    parser.add_argument('--test-dataset-path', type=str, default="./data/test_set.json", help='Path to test dataset')
-    parser.add_argument('--output-dir', type=str, default="./outputs", help='Directory for output files')
+    parser.add_argument('--dataset-path', type=str, default="./res/data/dataset_llama.json", help='Path to training dataset')
+    parser.add_argument('--test-dataset-path', type=str, default="./res/data/test_set.json", help='Path to test dataset')
+    parser.add_argument('--output-dir', type=str, default="./res/outputs", help='Directory for output files')
     args = parser.parse_args()
 
     # Configuration

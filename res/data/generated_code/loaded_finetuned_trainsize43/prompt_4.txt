@@ -1,0 +1,1 @@
+Implement an Akka Actor in Scala named StashingActor that stashes incoming messages while waiting for an "initialize" message. Once initialized, it should unstash and process all previously stashed messages and handle new messages normally.

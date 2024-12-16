@@ -1,0 +1,1 @@
+Create an Akka Actor in Scala named LoggingActor that utilizes Akka’s built-in logging facilities to log received messages at different log levels. Messages prefixed with "info", "warn", or "error" should be logged at the corresponding levels. All other messages should be logged at the debug level.

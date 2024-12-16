@@ -1,0 +1,23 @@
+import akka.actor.{Actor, ActorSystem, Props}
+
+// Define the LifecycleActor
+class LifecycleActor extends Actor {
+  def receive: Receive = {
+    case "start" => println("LifecycleActor started.")
+    case "shutdown" => println("LifecycleActor shutdown. This is a gracefull shutdown.")
+    case msg      => println(s"LifecycleActor received: $msg")
+  }
+}
+
+// Usage Example (for testing purposes)
+object LifecycleApp extends App {
+  val system = ActorSystem("LifecycleSystem")
+  val lifecycleActor = system.actorOf(Props[LifecycleActor](), "lifecycleActor")
+
+  lifecycleActor! "start"
+
+  lifecycleActor! "shutdown"
+  lifecycleActor! "message"
+
+  lifecycleActor! "another message"
+}

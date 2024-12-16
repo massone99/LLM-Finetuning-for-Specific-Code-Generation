@@ -1,0 +1,44 @@
+import akka.actor.{Actor, ActorSystem, Props}
+
+// Define the LimitedProcessorActor
+class LimitedProcessorActor extends Actor {
+  val messageQueue: scala.collection.mutable.Queue[String] = scala.collection.mutable.Queue.empty
+
+  def receive: Receive = {
+    case msg =>
+      messageQueue.enqueue(msg)
+      println(s"${self.path.name} received message: $msg. Adding to queue.")
+      processNext()
+
+    case "processMessage" =>
+      if (messageQueue.nonEmpty) {
+        val msg = messageQueue.dequeue()
+        println(s"${self.path.name} processing message: $msg")
+        // Simulate some processing time
+        Thread.sleep(500)
+        println(s"${self.path.name} processing complete. Next message in queue: ${messageQueue.dequeue()}")
+        processNext()
+      } else {
+        println(s"${self.path.name} finished processing queue.")
+      }
+  }
+
+  def processNext(): Unit = {
+    receive("processMessage")
+  }
+}
+
+// Usage Example
+object LimitedProcessorApp extends App {
+  val system = ActorSystem("LimitedProcessorSystem")
+  val processor = system.actorOf(Props[LimitedProcessorActor](), "processorActor")
+
+  // Send multiple messages
+  processor! "Message 1"
+  processor! "Message 2"
+  processor! "Message 3"
+
+  // Allow some time for processing before shutdown
+  Thread.sleep(1000)
+  system.terminate()
+}

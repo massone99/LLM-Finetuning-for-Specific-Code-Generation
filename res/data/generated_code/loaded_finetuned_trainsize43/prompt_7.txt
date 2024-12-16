@@ -1,0 +1,1 @@
+Create an Akka Actor named PriorityActor that processes messages with a custom priority mailbox. Messages of type HighPriority(msg: String) should be processed before messages of type LowPriority(msg: String), regardless of the order they are received. Implement the custom mailbox and demonstrate its usage.
