@@ -6,6 +6,8 @@ import os
 from unsloth import FastLanguageModel
 from unsloth.chat_templates import get_chat_template
 
+from logger import file_logger
+
 nltk.download('punkt')
 nltk.download('punkt_tab')
 
@@ -125,9 +127,14 @@ def evaluate_model(model, tokenizer, test_dataset_path, train_size, output_prefi
     with open(output_file, 'w') as f:
         json.dump(evaluation_results, f, indent=2)
 
-    print(f"\nEvaluation Results ({output_prefix}):")
-    print(f"Average BLEU Score: {avg_bleu:.4f}")
-    print(f"Detailed results saved to: {output_file}")
+    eval_res_title_str = f"Evaluation Results ({output_prefix}):\n"
+    bleu_score_str = f"Average BLEU Score: {avg_bleu:.4f}"
+    detailed_res_str = f"Detailed results saved to: {output_file}"
+
+
+    file_logger.write_and_print(eval_res_title_str, heading=2)
+    file_logger.write_and_print(bleu_score_str, heading=3)    
+    file_logger.write_and_print(detailed_res_str)
 
     extract_generated_code(output_file, output_prefix)
 

@@ -1,3 +1,4 @@
+import sys
 from peft import PeftModel
 from datasets import load_dataset
 from unsloth import FastLanguageModel
@@ -5,6 +6,8 @@ from unsloth.chat_templates import get_chat_template, standardize_sharegpt, trai
 from trl import SFTTrainer
 from transformers import TrainingArguments, DataCollatorForSeq2Seq
 from unsloth import is_bfloat16_supported
+from logger import file_logger
+
 
 def load_model_and_tokenizer(model_name="unsloth/Llama-3.2-3B-Instruct", max_seq_length=2048):
     """Load the model and tokenizer using the llama chat template"""
@@ -19,6 +22,13 @@ def load_model_and_tokenizer(model_name="unsloth/Llama-3.2-3B-Instruct", max_seq
     )
 
     tokenizer = get_chat_template(tokenizer, chat_template="llama-3.1")
+    
+    # Ensure tokenizer has pad_token
+    if tokenizer.pad_token is None:
+        tokenizer.add_special_tokens({'pad_token': '[PAD]'})
+        model.resize_token_embeddings(len(tokenizer))
+    model.config.pad_token_id = tokenizer.pad_token_id
+    
     return model, tokenizer
 
 def prepare_dataset(dataset_path, tokenizer):
@@ -136,6 +146,7 @@ def main():
     else:
         # Evaluate model before fine-tuning
         print("Evaluating model before fine-tuning...")
+        
         from evaluate import evaluate_model
         evaluate_model(model, tokenizer, args.test_dataset_path,
             train_dataset_size,
@@ -162,9 +173,6 @@ def main():
         with open(f"{output_dir}/training_metrics.json", "w") as f:
             json.dump(training_metrics, f, indent=2)
 
-        print(f"\nTraining completed in {training_time:.2f} seconds")
-        print(f"Training metrics saved to: {output_dir}/training_metrics.json")
-
         # Save the fine-tuned model
         trainer.save_model(f"{output_dir}/finetuned_model")
 
@@ -173,6 +181,12 @@ def main():
         evaluate_model(model, tokenizer, args.test_dataset_path,
                     train_dataset_size,
                       output_prefix=f"after_finetuning_trainsize{train_dataset_size}")
-
+        
+        train_time_str = f"\nTraining completed in {training_time:.2f} seconds"
+        train_metrics_path_str = f"Training metrics saved to: {output_dir}/training_metrics.json"
+        
+        file_logger.write_and_print(train_time_str)
+        file_logger.write_and_print(train_metrics_path_str)
+    
 if __name__ == "__main__":
     main()
