@@ -2,7 +2,7 @@
 name = "dataset-builder"
 version = "0.1.0"
 description = ""
-authors = ["Lorenzo Massone <lorenzo.studio@studio.unibo.it>"]
+authors = ["massone99 <lorenzo.studio@studio.unibo.it>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]

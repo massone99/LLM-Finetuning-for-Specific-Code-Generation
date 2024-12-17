@@ -1,9 +1,9 @@
 
-== Evaluation Results (loaded_finetuned_trainsize43):
+== Evaluation Results (before_finetuning):
 
 
-=== Average BLEU Score: 0.3027
+=== Average BLEU Score: 0.1003
 
- Detailed results saved to: ./res/data/results/evaluation_results_loaded_finetuned_trainsize43_20241217.json
+ Detailed results saved to: ./res/data/results/evaluation_results_before_finetuning_20241217.json
 
- Running examples: 4/17
+ Running examples: 0/17

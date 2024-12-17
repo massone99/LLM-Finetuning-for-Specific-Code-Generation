@@ -2,7 +2,7 @@
 name = "llama-finetune"
 version = "0.1.0"
 description = "Fine-tuning Llama 3.2 model for code generation"
-authors = ["Your Name <your.email@example.com>"]
+authors = ["massone99 <lorenzo.massone@studio.unibo.it>"]
 
 [tool.poetry.dependencies]
 python = "^3.10"
@@ -20,6 +20,9 @@ typeCheckingMode = "off"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.0.0"
+
+[tool.poetry.scripts]
+train = "llama_finetune.train:main"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
