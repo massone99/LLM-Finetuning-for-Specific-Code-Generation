@@ -1,1 +1,0 @@
-Implement two Akka Actors in Scala named PingActor and PongActor. The PingActor should initiate communication by sending a "Ping" message to the PongActor. Upon receiving a "Ping", the PongActor should reply with a "Pong" message. The PingActor should respond to each "Pong" by sending another "Ping", creating a continuous ping-pong exchange.

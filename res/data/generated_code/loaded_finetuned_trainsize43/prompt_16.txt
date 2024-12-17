@@ -1,1 +1,0 @@
-Create an Akka Actor in Scala named ResponderActor that listens for Greet(name: String) messages. Upon receiving such a message, it should reply to the sender with "Hello, <name>!". Demonstrate sending a Greet message and receiving the response.

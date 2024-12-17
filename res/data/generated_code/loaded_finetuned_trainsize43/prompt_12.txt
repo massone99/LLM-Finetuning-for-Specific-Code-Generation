@@ -1,1 +1,0 @@
-Create an Akka Actor in Scala named LifecycleActor that logs messages upon starting (preStart) and stopping (postStop). The actor should also handle a "shutdown" message to gracefully stop itself. Demonstrate the lifecycle hooks by sending appropriate messages.

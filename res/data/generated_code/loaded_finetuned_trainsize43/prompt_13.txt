@@ -1,1 +1,0 @@
-Implement an Akka Actor in Scala named FilterActor that processes only integer messages greater than 10. For such messages, it should respond with "Accepted: <number>". For all other messages, it should respond with "Rejected: <number>". Demonstrate the actor by sending a mix of messages.

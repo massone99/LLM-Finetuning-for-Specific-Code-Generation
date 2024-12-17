@@ -8,6 +8,15 @@ from unsloth.chat_templates import get_chat_template
 
 from logger import file_logger
 
+import sys
+import os
+
+# Add parent directory to path to import retrieve_model_output
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+
+from build_checker.build_checker.main import evaluate_generated_code, load_json_dataset
+
+
 nltk.download('punkt')
 nltk.download('punkt_tab')
 
@@ -56,16 +65,11 @@ def generate_code(model, tokenizer, prompts, max_new_tokens=512, temperature=1.5
         generated_codes.append(generated_code)
     return generated_codes
 
-def evaluate_model(model, tokenizer, test_dataset_path, train_size, output_prefix="baseline"):
+def compute_bleu_for_model(model, tokenizer, test_dataset_path, train_size, output_prefix="baseline"):
     """Evaluate model performance using BLEU metric."""
     from evaluate import compute_bleu
     from datasets import load_dataset
     from datetime import datetime
-    import sys
-    import os
-
-    # Add parent directory to path to import retrieve_model_output
-    sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
     # Load test dataset
     test_dataset = load_dataset('json', data_files=test_dataset_path, split='train')
@@ -136,7 +140,7 @@ def evaluate_model(model, tokenizer, test_dataset_path, train_size, output_prefi
     file_logger.write_and_print(bleu_score_str, heading=3)    
     file_logger.write_and_print(detailed_res_str)
 
-    extract_generated_code(output_file, output_prefix)
+    # extract_generated_code(output_file, output_prefix)
 
     return output_file
 
@@ -151,3 +155,18 @@ def extract_generated_code(output_file, output_prefix):
         print(f"Generated code samples saved to: {generated_code_dir}")
     else:
         print(f"Warning: Failed to extract code samples: {message}")
+    return success 
+
+
+
+
+def evaluate_model(model, tokenizer, test_dataset_path, train_size, output_prefix="baseline"):
+    try:
+        output_file = compute_bleu_for_model(model, tokenizer, test_dataset_path, train_size, output_prefix)
+        extract_generated_code(output_file, output_prefix)
+    except Exception as e:
+        print(f"An error occurred during BLEU evaluation: {e}")
+    work_sampl, tot_sampl = evaluate_generated_code(output_file, run_flag=True)
+    file_logger.write_and_print(f"Running examples: {work_sampl}/{tot_sampl}")
+    return output_file
+    

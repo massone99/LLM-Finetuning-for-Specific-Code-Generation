@@ -1,1 +1,0 @@
-Implement a simple Akka Actor that echoes back any received message to the sender.

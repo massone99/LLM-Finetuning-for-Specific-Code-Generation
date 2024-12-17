@@ -1,1 +1,0 @@
-Implement an "Hello World" example using Akka Actors

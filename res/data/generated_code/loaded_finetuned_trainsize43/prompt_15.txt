@@ -1,1 +1,0 @@
-Implement an Akka Actor in Scala named LimitedProcessorActor that maintains an internal queue of messages. The actor should process only one message at a time and ignore incoming messages while busy processing. Once processing is complete, it should process the next message in the queue. Demonstrate the actor handling multiple incoming messages.

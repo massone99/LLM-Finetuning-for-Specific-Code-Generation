@@ -41,7 +41,7 @@ console_handler.setFormatter(color_formatter)
 # Configure logger
 logger = logging.getLogger("GeneralLogger")
 
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 logger.addHandler(console_handler)
 # logger.addHandler(file_handler)

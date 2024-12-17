@@ -1,1 +1,0 @@
-Design an Akka Actor in Scala named CircuitBreakerActor that interacts with an unreliable external service. Use Akka’s CircuitBreaker to handle failures gracefully. The actor should attempt to call the external service when it receives a "callService" message and respond with either the service's response or an error message if the circuit is open.
