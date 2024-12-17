@@ -47,25 +47,16 @@ def setup_trainer(model, tokenizer, dataset, max_seq_length, output_dir="outputs
     """Set up the SFT trainer."""
     # Here we are using LORA with PEFT
     model = FastLanguageModel.get_peft_model(model, r=16,
-        target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"], 
-        # A higher alpha gives more weight to the LoRA updates
-        lora_alpha=32,
+        target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"], lora_alpha=16,
         lora_dropout=0, bias="none", use_gradient_checkpointing="unsloth", random_state=3407, use_rslora=False,
         loftq_config=None, )
 
     trainer = SFTTrainer(model=model, tokenizer=tokenizer, train_dataset=dataset, dataset_text_field="text",
         max_seq_length=max_seq_length, data_collator=DataCollatorForSeq2Seq(tokenizer=tokenizer), dataset_num_proc=2,
         packing=False,
-        args=TrainingArguments(
-            # Larger batch sizes generally lead to faster training and potentially better generalization
-            per_device_train_batch_size=8, 
-            # Simulates a larger batch size by accumulating gradients over multiple steps. 
-            # This is used to effectively increase the batch size when memory is limited
-            gradient_accumulation_steps=1,
-            # It's common to use a fraction of the total training steps (e.g., 10% or even more in some cases).
-            warmup_steps=500,
-            max_steps=5000, learning_rate=2e-4, fp16=not is_bfloat16_supported(), bf16=is_bfloat16_supported(),
-            logging_steps=10, optim="adamw_8bit", weight_decay=0.01, lr_scheduler_type="linear", seed=3407,
+        args=TrainingArguments(per_device_train_batch_size=2, gradient_accumulation_steps=4, warmup_steps=5,
+            max_steps=60, learning_rate=2e-4, fp16=not is_bfloat16_supported(), bf16=is_bfloat16_supported(),
+            logging_steps=1, optim="adamw_8bit", weight_decay=0.01, lr_scheduler_type="linear", seed=3407,
             output_dir=output_dir, report_to="none", ), )
 
     trainer = train_on_responses_only(trainer, instruction_part="<|start_header_id|>user<|end_header_id|>\n\n",
