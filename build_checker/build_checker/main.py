@@ -139,23 +139,12 @@ def run_project(project_directory) -> bool:
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
-        logger.info(f"Run stdout: {result.stdout.decode('utf-8')}")
-        logger.warning(f"Run stderr: {result.stderr.decode('utf-8')}")
         return True
     except subprocess.CalledProcessError as e:
-        logger.error(f"Error running project: {e}")
-        return log_execution_error(e)
+        return False
     except FileNotFoundError:
         logger.error("sbt not found. Please ensure sbt is installed and in your PATH")
         return False
-
-
-def log_execution_error(e):
-    logger.error(f"Error running project: {e}")
-    logger.error(f"Run stdout: {e.stdout.decode('utf-8')}")
-    logger.error(f"Run stderr: {e.stderr.decode('utf-8')}")
-    return False
-
 
 def build_project(project_directory):
     import subprocess
@@ -173,7 +162,7 @@ def build_project(project_directory):
         logger.info(f"Build stdout: {result.stdout.decode('utf-8')}")
         logger.error(f"Build stderr: {result.stderr.decode('utf-8')}")
     except subprocess.CalledProcessError as e:
-        log_execution_error(e)
+        logger.error(f"Error building project: {e}")
     except FileNotFoundError:
         logger.error("sbt not found. Please ensure sbt is installed and in your PATH")
         return False
@@ -181,6 +170,7 @@ def build_project(project_directory):
 
 def __calc_working_code_samples(dataset, run_flag) -> tuple:
     from retrieve_model_output import extract_prompt_and_code
+    from retrieve_model_output import extract_prompt_and_code_qwen
     
     if dataset is None:
         logger.error("No dataset file provided. Stopping further processing.")
@@ -194,7 +184,6 @@ def __calc_working_code_samples(dataset, run_flag) -> tuple:
         generated = chat["generated"]
         prompt, code = extract_prompt_and_code(generated)
         
-        # FIXME: DUPLICATED WITH process_projects
         # Define the path to the Main.scala file
         main_scala_path = os.path.join(
             scala_proj_dir, "src/main/scala/Main.scala"
@@ -207,8 +196,7 @@ def __calc_working_code_samples(dataset, run_flag) -> tuple:
         if run_flag:
             run_status = run_project(scala_proj_dir)
             if not run_status:
-                logger.error("Code causing error:")
-                logger.error(f"\n{code}")
+                logger.error("Code causing error!")
             else:
                 running_examples += 1
     logger.debug(f"Running examples: {running_examples}/{len(results)}")
@@ -247,14 +235,14 @@ def main():
     selected_file_path = "../dataset_builder/data/synthetic_data/dataset_llama.json"
 
     # FIXME
-    # dataset = load_json_dataset(selected_file_path)
-    # output_path = "res/akka_placeholder"
-    # process_projects(dataset, output_path, build_flag=False, run_flag=True)
+    dataset = load_json_dataset(selected_file_path)
+    output_path = "res/akka_placeholder"
+    process_projects(dataset, output_path, build_flag=False, run_flag=True)
 
     # Loading results JSON
-    selected_file_path = "/home/lorix/Documents/dev/uni/TESI/python/llama_finetune/res/data/results/evaluation_results_loaded_finetuned_trainsize43_20241216.json"
+    # selected_file_path = "/home/lorix/Documents/dev/uni/TESI/python/llama_finetune/res/data/results/evaluation_results_loaded_finetuned_trainsize43_20241216.json"
     
-    dataset = load_json_dataset(selected_file_path)
-    __calc_working_code_samples(dataset, scala_proj_dir, run_flag=True)
+    # dataset = load_json_dataset(selected_file_path)
+    # __calc_working_code_samples(dataset, run_flag=True)
     
     

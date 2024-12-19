@@ -1,9 +1,30 @@
 
-== Evaluation Results (before_finetuning):
+== 
+Evaluation Results (before_finetuning):
 
 
-=== Average BLEU Score: 0.1003
+=== 
+Average BLEU Score: 0.0987
 
- Detailed results saved to: ./res/data/results/evaluation_results_before_finetuning_20241217.json
+ 
+Detailed results saved to: ./res/data/results/evaluation_results_before_finetuning_20241219.json
 
  Running examples: 0/17
+
+== 
+Evaluation Results (after_finetuning_trainsize45):
+
+
+=== 
+Average BLEU Score: 0.3642
+
+ 
+Detailed results saved to: ./res/data/results/evaluation_results_after_finetuning_trainsize45_20241219.json
+
+ Running examples: 10/17
+
+ 
+Training completed in 315.96 seconds
+
+ 
+Training metrics saved to: ./res/outputs/training_metrics.json

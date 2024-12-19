@@ -131,9 +131,9 @@ def compute_bleu_for_model(model, tokenizer, test_dataset_path, train_size, outp
     with open(output_file, 'w') as f:
         json.dump(evaluation_results, f, indent=2)
 
-    eval_res_title_str = f"Evaluation Results ({output_prefix}):\n"
-    bleu_score_str = f"Average BLEU Score: {avg_bleu:.4f}"
-    detailed_res_str = f"Detailed results saved to: {output_file}"
+    eval_res_title_str = f"\nEvaluation Results ({output_prefix}):\n"
+    bleu_score_str = f"\nAverage BLEU Score: {avg_bleu:.4f}"
+    detailed_res_str = f"\nDetailed results saved to: {output_file}"
 
 
     file_logger.write_and_print(eval_res_title_str, heading=2)
@@ -150,7 +150,7 @@ def extract_generated_code(output_file, output_prefix):
 
     # Extract and save generated code
     generated_code_dir = os.path.join('../res/data/generated_code', output_prefix)
-    success, message, files = process_evaluation_results(output_file, generated_code_dir, file_extension='.txt')
+    success, message, files = process_evaluation_results(output_file, generated_code_dir, file_extension='.txt', format="qwen")
     if success:
         print(f"Generated code samples saved to: {generated_code_dir}")
     else:
@@ -166,6 +166,7 @@ def evaluate_model(model, tokenizer, test_dataset_path, train_size, output_prefi
         extract_generated_code(output_file, output_prefix)
     except Exception as e:
         print(f"An error occurred during BLEU evaluation: {e}")
+    print(f"Output file being returned: {output_file}")
     work_sampl, tot_sampl = evaluate_generated_code(output_file, run_flag=True)
     file_logger.write_and_print(f"Running examples: {work_sampl}/{tot_sampl}")
     return output_file

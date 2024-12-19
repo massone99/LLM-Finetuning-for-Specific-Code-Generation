@@ -41,6 +41,32 @@ def extract_prompt_and_code(generated_text):
 
     return prompt, code
 
+def extract_prompt_and_code_qwen(generated_text):
+    """
+    Extract the prompt and the generated code from the given generated_text with the new format.
+
+    Parameters:
+        generated_text (str): The text containing the prompt and generated code.
+
+    Returns:
+        tuple: A tuple containing the prompt and the generated code.
+    """
+    import re
+
+    # Define patterns based on the new format
+    prompt_pattern = r'<\|start_header_id\|>user<\|end_header_id\|>\s*\n\n(.*?)<\|eot_id\|>'
+    code_pattern = r'<\|start_header_id\|>assistant<\|end_header_id\|>\s*\n\n(.*?)<\|eot_id\|>'
+
+    # Extract prompt
+    prompt_match = re.search(prompt_pattern, generated_text, re.DOTALL)
+    prompt = prompt_match.group(1).strip() if prompt_match else None
+
+    # Extract code
+    code_match = re.search(code_pattern, generated_text, re.DOTALL)
+    code = code_match.group(1).strip() if code_match else None
+
+    return prompt, code
+
 def save_to_file(directory, idx, prompt, code, file_extension='.txt'):
     """
     Save the prompt and code to separate files within the specified directory.
@@ -68,7 +94,7 @@ def save_to_file(directory, idx, prompt, code, file_extension='.txt'):
     
     return prompt_file, code_file
 
-def process_evaluation_results(json_path, output_dir, file_extension='.scala'):
+def process_evaluation_results(json_path, output_dir, file_extension='.scala', format="llama"):
     """
     Process evaluation results from a JSON file and save extracted prompts and code.
     
@@ -93,7 +119,7 @@ def process_evaluation_results(json_path, output_dir, file_extension='.scala'):
     saved_files = []
     for idx, result in enumerate(detailed_results, 1):
         generated_text = result.get('generated', '')
-        prompt, code = extract_prompt_and_code(generated_text)
+        prompt, code = extract_prompt_and_code(generated_text) if format == "llama" else extract_prompt_and_code_qwen(generated_text)
         
         if not prompt:
             prompt = 'Prompt not found.'

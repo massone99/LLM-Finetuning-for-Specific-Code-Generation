@@ -18,3 +18,5 @@ llama3_rag/data/rag_results/*
 target/
 # Ignore code generated and extracted
 *.txt
+# Ignore the checkpoints made by unsloth
+*/outputs/checkpoint*
