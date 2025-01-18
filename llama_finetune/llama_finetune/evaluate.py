@@ -137,7 +137,7 @@ def compute_bleu_for_model(model, tokenizer, test_dataset_path, train_size, outp
 
 
     file_logger.write_and_print(eval_res_title_str, heading=2)
-    file_logger.write_and_print(bleu_score_str, heading=3)    
+    file_logger.write_and_print(bleu_score_str, heading=3)
     file_logger.write_and_print(detailed_res_str)
 
     # extract_generated_code(output_file, output_prefix)
@@ -150,12 +150,12 @@ def extract_generated_code(output_file, output_prefix):
 
     # Extract and save generated code
     generated_code_dir = os.path.join('../res/data/generated_code', output_prefix)
-    success, message, files = process_evaluation_results(output_file, generated_code_dir, file_extension='.txt', format="qwen")
+    success, message, files = process_evaluation_results(output_file, generated_code_dir, file_extension='.txt')
     if success:
         print(f"Generated code samples saved to: {generated_code_dir}")
     else:
         print(f"Warning: Failed to extract code samples: {message}")
-    return success 
+    return success
 
 
 
@@ -170,4 +170,3 @@ def evaluate_model(model, tokenizer, test_dataset_path, train_size, output_prefi
     work_sampl, tot_sampl = evaluate_generated_code(output_file, run_flag=True)
     file_logger.write_and_print(f"Running examples: {work_sampl}/{tot_sampl}")
     return output_file
-    

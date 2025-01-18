@@ -8,7 +8,7 @@ import sys
 # Add parent directory to path to import retrieve_model_output
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
-from build_checker.build_checker.log.logger import logger
+from build_checker.log.logger import logger
 
 
 hash_file_path = "res/config/processed_hashes.json"
@@ -72,9 +72,9 @@ def process_projects(dataset, output_directory, build_flag, run_flag):
     if dataset is None:
         logger.error("No dataset file provided. Stopping further processing.")
         return
-    
+
     processed_hashes = load_processed_hashes(hash_file_path)
-    
+
     # Iterate over each conversation
     for idx, conversation in enumerate(dataset):
         assistant_messages = [
@@ -82,7 +82,7 @@ def process_projects(dataset, output_directory, build_flag, run_flag):
             for msg in conversation.get("conversations", [])
             if msg.get("from") == "assistant"
         ]
-        
+
         human_prompts = [
             msg["value"]
             for msg in conversation.get("conversations", [])
@@ -94,7 +94,7 @@ def process_projects(dataset, output_directory, build_flag, run_flag):
             if current_hash in processed_hashes:
                 logger.info(f"Skipping already processed pair at index {idx}.")
                 continue
-            
+
             # Define the path to the Main.scala file
             main_scala_path = os.path.join(
                 output_directory, "src/main/scala/Main.scala"
@@ -118,7 +118,7 @@ def process_projects(dataset, output_directory, build_flag, run_flag):
                     logger.error(f"Idx conversation: {idx}")
                     logger.error(f"Prompt: {human_prompt}")
                     # logger.error(f"Code: {code}")
-                    
+
                     return
             processed_hashes.add(current_hash)
             save_processed_hashes(processed_hashes, hash_file_path)
@@ -166,32 +166,31 @@ def build_project(project_directory):
     except FileNotFoundError:
         logger.error("sbt not found. Please ensure sbt is installed and in your PATH")
         return False
-    
+
 
 def __calc_working_code_samples(dataset, run_flag) -> tuple:
     from retrieve_model_output import extract_prompt_and_code
-    from retrieve_model_output import extract_prompt_and_code_qwen
-    
+
     if dataset is None:
         logger.error("No dataset file provided. Stopping further processing.")
         return
 
     running_examples = 0
-    
+
     results = dataset["detailed_results"]
     dataset_len = dataset["training_dataset_size"]
     for chat in results:
         generated = chat["generated"]
         prompt, code = extract_prompt_and_code(generated)
-        
+
         # Define the path to the Main.scala file
         main_scala_path = os.path.join(
             scala_proj_dir, "src/main/scala/Main.scala"
         )
-        
+
         with open(main_scala_path, "w") as scala_file:
             scala_file.write(code)
-        
+
         # Run the Scala project
         if run_flag:
             run_status = run_project(scala_proj_dir)
@@ -201,7 +200,7 @@ def __calc_working_code_samples(dataset, run_flag) -> tuple:
                 running_examples += 1
     logger.debug(f"Running examples: {running_examples}/{len(results)}")
     return running_examples, len(results)
-    
+
 
 def evaluate_generated_code(dataset_path, run_flag) -> tuple:
     """
@@ -223,7 +222,7 @@ def evaluate_generated_code(dataset_path, run_flag) -> tuple:
     if dataset is None:
         logger.error("No dataset file provided. Stopping further processing.")
         raise ValueError("No dataset file provided.")
-    
+
     return __calc_working_code_samples(dataset, run_flag)
 
 
@@ -241,8 +240,6 @@ def main():
 
     # Loading results JSON
     # selected_file_path = "/home/lorix/Documents/dev/uni/TESI/python/llama_finetune/res/data/results/evaluation_results_loaded_finetuned_trainsize43_20241216.json"
-    
+
     # dataset = load_json_dataset(selected_file_path)
     # __calc_working_code_samples(dataset, run_flag=True)
-    
-    

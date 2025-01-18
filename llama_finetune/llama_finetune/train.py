@@ -13,9 +13,9 @@ from termcolor import colored
 
 def load_model_and_tokenizer(model_name="unsloth/Llama-3.2-3B-Instruct", max_seq_length=2048):
     """Load the model and tokenizer using the llama chat template"""
-    
+
     print(colored(f"Finetuning model: {model_name}", 'green'))
-    
+
     dtype = None  # Auto detection
     load_in_4bit = True
 
@@ -46,74 +46,7 @@ def prepare_dataset(dataset_path, tokenizer):
     dataset = dataset.map(formatting_prompts_func, batched=True)
     return dataset
 
-def prepare_dataset_qwen(dataset_path, tokenizer):
-    """Prepare the dataset for training."""
-    
-    # Load the dataset from a JSON file
-    dataset = load_dataset('json', data_files=dataset_path, split='train')
-    
-    # Apply standardization if necessary
-    # Ensure that 'standardize_sharegpt' is defined elsewhere in your code
-    dataset = standardize_sharegpt(dataset)
-    
-    # Define the Alpaca prompt template
-    alpaca_prompt = """Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.
 
-    ### Instruction:
-    {}
-
-    ### Input:
-    {}
-
-    ### Response:
-    {}"""
-        
-    # Define the end-of-sequence token
-    EOS_TOKEN = tokenizer.eos_token  # Ensure tokenizer is already initialized
-    
-    def formatting_prompts_func(examples):
-        """
-        Formats the dataset examples into the alpaca_prompt structure.
-        
-        Args:
-            examples (dict): A batch of examples from the dataset.
-            
-        Returns:
-            dict: A dictionary with the key "text" containing the formatted prompts.
-        """
-        texts = []
-        for conv in examples["conversations"]:
-            # Initialize variables
-            instruction = ""
-            response = ""
-            input_text = ""  # Assuming no separate input; modify if necessary
-
-            # Extract messages
-            for message in conv:
-                if message["from"] == "human":
-                    instruction = message["value"].strip()
-                elif message["from"] == "assistant":
-                    response = message["value"].strip()
-
-            # Validate presence of both instruction and response
-            if instruction and response:
-                # Format the prompt using alpaca_prompt
-                formatted_text = alpaca_prompt.format(instruction, input_text, response) + EOS_TOKEN
-                texts.append(formatted_text)
-            else:
-                # Optionally handle incomplete conversations
-                print("Warning: Missing instruction or response in a conversation. Skipping this entry.")
-        
-        return {"text": texts}
-
-    # Apply the mapping function to format the dataset
-    formatted_dataset = dataset.map(
-        formatting_prompts_func,
-        batched=True,                     # Process in batches for efficiency
-        remove_columns=["conversations"]  # Optionally remove the original conversations
-    )
-    
-    return formatted_dataset
 
 def setup_trainer(model, tokenizer, dataset, max_seq_length, output_dir="outputs"):
     """Set up the SFT trainer."""
@@ -124,11 +57,15 @@ def setup_trainer(model, tokenizer, dataset, max_seq_length, output_dir="outputs
         # r = 128 crasha malamente il PC
         r = 64, # Choose any number > 0 ! Suggested 8, 16, 32, 64, 128
         target_modules = ["q_proj", "k_proj", "v_proj", "o_proj",
-                        "gate_proj", "up_proj", "down_proj",],
+                        "gate_proj", "up_proj", "down_proj",
+                        #   added lm_head
+                        # "lm_head"
+                        ],
         # lora_alpha = 16,
         # lora_alpha = 128 was good
         # lora_alpha = 512 was awesome, BLEU: 0.36 Running examples: 10/17
-        # try 1024 to se 
+        # lora_alpha = 512 was awesome, BLEU: 0.37 Running examples: 8/17 (another try)
+        # 1024 got a 7/17. Probably 512 is the best parameter right now
         lora_alpha = 512, # α > rank: Using an alpha value greater than the rank amplifies the LoRA updates, giving them more influence over the final output.
         lora_dropout = 0, # Supports any, but = 0 is optimized
         bias = "none",    # Supports any, but = "none" is optimized
@@ -149,8 +86,12 @@ def setup_trainer(model, tokenizer, dataset, max_seq_length, output_dir="outputs
         dataset_num_proc = 2,
         packing = False, # Can make training 5x faster for short sequences.
         args = TrainingArguments(
-            per_device_train_batch_size = 2,
+            # per_device_train_batch_size = 2,
+            # per_device_train_batch_size = 8 crasha tutto
+            per_device_train_batch_size = 4,
             gradient_accumulation_steps = 4,
+            # max_steps = 500, andata meh 5/17 BLEU 0.38
+            # warmup_steps = 50, ----> molto meglio max_steps = 60, warmup_steps = 5
             warmup_steps = 5,
             # this line was commented by default
             num_train_epochs = 5, # Set this for 1 full training run.
@@ -172,6 +113,23 @@ def setup_trainer(model, tokenizer, dataset, max_seq_length, output_dir="outputs
         response_part="<|start_header_id|>assistant<|end_header_id|>\n\n", )
 
     return trainer
+
+
+def format_training_params(peft_config, training_args):
+    """Format PEFT and training parameters into a readable string."""
+    peft_params = f"\nPEFT Parameters:"
+    peft_params += f"\n- LoRA rank (r): {peft_config.r}"
+    peft_params += f"\n- LoRA alpha: {peft_config.lora_alpha}"
+    peft_params += f"\n- LoRA dropout: {peft_config.lora_dropout}"
+    peft_params += f"\n- Target modules: {peft_config.target_modules}"
+
+    train_params = f"\nTraining Parameters:"
+    train_params += f"\n- Batch size: {training_args.per_device_train_batch_size}"
+    train_params += f"\n- Gradient accumulation steps: {training_args.gradient_accumulation_steps}"
+    train_params += f"\n- Learning rate: {training_args.learning_rate}"
+    train_params += f"\n- Number of epochs: {training_args.num_train_epochs}"
+    train_params += f"\n- Max steps: {training_args.max_steps}"
+    train_params += f"\n- Optimizer: {training_args.optim}"
 
 
 # For fine tuning:
@@ -197,7 +155,7 @@ def main():
 
     # Load base model and tokenizer
     model, tokenizer = load_model_and_tokenizer(
-        model_name="unsloth/Llama-3.2-3B-Instruct", 
+        model_name="unsloth/Llama-3.2-3B-Instruct",
         max_seq_length=max_seq_length)
 
     # Get training dataset size from the original training data
@@ -231,7 +189,6 @@ def main():
         evaluate_model(model, tokenizer, args.test_dataset_path, train_dataset_size, output_prefix)
 
         # Prepare dataset
-        # dataset = prepare_dataset_qwen(args.dataset_path, tokenizer)
         dataset = prepare_dataset(args.dataset_path, tokenizer)
 
         # Setup and start training
@@ -243,7 +200,7 @@ def main():
         training_output = trainer.train()
         training_time = time.time() - start_time
 
-        # Save training metrics
+        # Save training metricsè
         training_metrics = {"training_time_seconds": training_time,
             "training_stats": training_output.metrics if training_output else None}
         import json
@@ -259,6 +216,10 @@ def main():
         evaluate_model(model, tokenizer, args.test_dataset_path, train_dataset_size, output_prefix)
         train_time_str = f"\nTraining completed in {training_time:.2f} seconds"
         train_metrics_path_str = f"\nTraining metrics saved to: {output_dir}/training_metrics.json"
+
+        # FIXME (error in params names)
+        # params_str = format_training_params(model.peft_config, trainer.args)
+        # file_logger.write_and_print(params_str)
 
         file_logger.write_and_print(train_time_str)
         file_logger.write_and_print(train_metrics_path_str)

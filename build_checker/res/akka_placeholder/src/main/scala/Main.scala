@@ -1,37 +1,38 @@
-import akka.actor.{Actor, ActorRef, ActorSystem, OneForOneStrategy, Props, SupervisorStrategy}
-import akka.actor.SupervisorStrategy._
+package sample.cluster.simple
 
-import scala.concurrent.duration._
+import akka.actor.typed.scaladsl.Behaviors
+import akka.actor.typed.ActorSystem
+import akka.actor.typed.Behavior
+import com.typesafe.config.ConfigFactory
 
-// Define the Child Actor
-class FaultyChildActor extends Actor {
-  def receive: Receive = {
-    case "causeNull" => throw new NullPointerException("Simulated NullPointerException")
-    case msg        => println(s"Child Actor received: $msg")
-  }
-}
+object App {
 
-// Define the EscalatingSupervisor Actor
-class EscalatingSupervisor extends Actor {
-  override val supervisorStrategy: SupervisorStrategy = OneForOneStrategy() {
-    case _: NullPointerException => println("Escalating Supervisor: Escalating NullPointerException")
-    case _: Exception => println("Escalating Supervisor: Escalating unknown exception")
+  object RootBehavior {
+    def apply(): Behavior[Nothing] = Behaviors.setup[Nothing] { context =>
+      // Create an actor that handles cluster domain events
+      context.spawn(ClusterListener(), "ClusterListener")
+
+      Behaviors.empty
+    }
   }
 
-  val child: ActorRef = context.actorOf(Props[FaultyChildActor](), "faultyChildActor")
-
-  def receive: Receive = {
-    case msg =>
-      child.forward(msg)
+  def main(args: Array[String]): Unit = {
+    val ports =
+      if (args.isEmpty)
+        Seq(25251, 25252, 0)
+      else
+        args.toSeq.map(_.toInt)
+    ports.foreach(startup)
   }
-}
 
-// Usage Example (for testing purposes)
-object EscalatingSupervisorApp extends App {
-  val system = ActorSystem("EscalatingSupervisorSystem")
-  val supervisor = system.actorOf(Props[EscalatingSupervisor](), "escalatingSupervisor")
+  def startup(port: Int): Unit = {
+    // Override the configuration of the port
+    val config = ConfigFactory.parseString(s"""
+      akka.remote.artery.canonical.port=$port
+      """).withFallback(ConfigFactory.load())
 
-  supervisor! "Hello"
-  supervisor! "causeNull"
-  supervisor! "World"
+    // Create an Akka system
+    ActorSystem[Nothing](RootBehavior(), "ClusterSystem", config)
+  }
+
 }
