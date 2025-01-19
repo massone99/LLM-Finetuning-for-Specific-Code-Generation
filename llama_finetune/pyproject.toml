@@ -5,17 +5,17 @@ description = "Fine-tuning Llama 3.2 model for code generation"
 authors = ["massone99 <lorenzo.massone@studio.unibo.it>"]
 
 [tool.poetry.dependencies]
-python = "^3.10"
-torch = "^2.5.1"
-datasets = "^3.1.0"
-unsloth = "^2024.11.11"
-nltk = "^3.9.1"
-pandas = "^2.2.3"
-crystalbleu = "^0.1"
-peft = "^0.13.2"
-scipy = "^1.14.1"
-termcolor = "^2.5.0"
+python = "3.10"
+torch = "2.5.1"
+datasets = "3.1.0"
+nltk = "3.9.1"
+pandas = "2.2.3"
+crystalbleu = "0.1"
+peft = "0.13.2"
+scipy = "1.14.1"
+termcolor = "2.5.0"
 transformers = "4.46.3"
+unsloth = "2025.1.5"
 
 [tool.pyright]
 typeCheckingMode = "off"

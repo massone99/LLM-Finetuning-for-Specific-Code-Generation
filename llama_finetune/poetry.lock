@@ -2609,13 +2609,13 @@ files = [
 
 [[package]]
 name = "unsloth"
-version = "2024.12.12"
+version = "2025.1.5"
 description = "2-5X faster LLM finetuning"
 optional = false
 python-versions = ">=3.9"
 files = [
-    {file = "unsloth-2024.12.12-py3-none-any.whl", hash = "sha256:0780932a58c7599c3b0ac1fdb7f5e9ea137806640f56a36f8e8d4d33db4c317b"},
-    {file = "unsloth-2024.12.12.tar.gz", hash = "sha256:82fdbc6f9c64834b7ee95fcdd3d84a6edf779d2233703a72b2fe60cd99e373d8"},
+    {file = "unsloth-2025.1.5-py3-none-any.whl", hash = "sha256:65e853e740fa41077bb60f28157959ca272e8788275480774e3fff8c3830e775"},
+    {file = "unsloth-2025.1.5.tar.gz", hash = "sha256:9cc44c6eef5732298498979d8e43ab5be06fe49d0b5c8fc4e1be42dd17f4243c"},
 ]
 
 [package.dependencies]
@@ -2636,7 +2636,7 @@ transformers = ">=4.46.1,<4.47.0 || >4.47.0"
 triton = {version = ">=3.0.0", markers = "platform_system == \"Linux\""}
 trl = ">=0.7.9,<0.9.0 || >0.9.0,<0.9.1 || >0.9.1,<0.9.2 || >0.9.2,<0.9.3 || >0.9.3"
 tyro = "*"
-unsloth_zoo = ">=2024.12.7"
+unsloth_zoo = ">=2025.1.2"
 wheel = ">=0.42.0"
 xformers = ">=0.0.27.post2"
 
@@ -2645,7 +2645,7 @@ colab = ["unsloth[cu121]"]
 colab-ampere = ["unsloth[colab-ampere-torch220]", "unsloth[flashattention]"]
 colab-ampere-torch211 = ["bitsandbytes (>=0.43.3)", "unsloth[cu121onlytorch211]", "unsloth[flashattention]", "unsloth[huggingface]"]
 colab-ampere-torch220 = ["bitsandbytes (>=0.43.3)", "unsloth[cu121onlytorch220]", "unsloth[flashattention]", "unsloth[huggingface]"]
-colab-new = ["bitsandbytes (>=0.43.3)", "datasets (>=2.16.0)", "hf_transfer", "huggingface_hub", "numpy", "packaging", "protobuf (<4.0.0)", "psutil", "sentencepiece (>=0.2.0)", "tqdm", "transformers (>=4.46.1,!=4.47.0)", "tyro", "unsloth[triton]", "unsloth_zoo (>=2024.12.7)", "wheel (>=0.42.0)"]
+colab-new = ["bitsandbytes (>=0.43.3)", "datasets (>=2.16.0)", "hf_transfer", "huggingface_hub", "numpy", "packaging", "protobuf (<4.0.0)", "psutil", "sentencepiece (>=0.2.0)", "tqdm", "transformers (>=4.46.1,!=4.47.0)", "tyro", "unsloth[triton]", "unsloth_zoo (>=2025.1.2)", "wheel (>=0.42.0)"]
 colab-no-deps = ["accelerate (>=0.34.1)", "bitsandbytes (>=0.43.3)", "peft (>=0.7.1)", "protobuf (<4.0.0)", "trl (>=0.7.9,!=0.9.0,!=0.9.1,!=0.9.2,!=0.9.3)", "xformers (<0.0.27)"]
 colab-torch211 = ["bitsandbytes (>=0.43.3)", "unsloth[cu121onlytorch211]", "unsloth[huggingface]"]
 colab-torch220 = ["bitsandbytes (>=0.43.3)", "unsloth[cu121onlytorch220]", "unsloth[huggingface]"]
@@ -2689,7 +2689,7 @@ cu121onlytorch220 = ["xformers (==0.0.24)"]
 cu121onlytorch230 = ["xformers (==0.0.27)"]
 cu121onlytorch240 = ["xformers (==0.0.27.post2)"]
 cu121onlytorch250 = ["xformers (==0.0.28.post2)"]
-cu121onlytorch251 = ["xformers (==0.0.28.post3)"]
+cu121onlytorch251 = ["xformers (==0.0.29.post1)"]
 cu124-ampere-torch240 = ["bitsandbytes (>=0.43.3)", "unsloth[cu124onlytorch240]", "unsloth[flashattention]", "unsloth[huggingface]"]
 cu124-ampere-torch250 = ["bitsandbytes (>=0.43.3)", "unsloth[cu124onlytorch250]", "unsloth[flashattention]", "unsloth[huggingface]"]
 cu124-ampere-torch251 = ["bitsandbytes (>=0.43.3)", "unsloth[cu124onlytorch251]", "unsloth[flashattention]", "unsloth[huggingface]"]
@@ -2697,9 +2697,9 @@ cu124-torch240 = ["bitsandbytes (>=0.43.3)", "unsloth[cu124onlytorch240]", "unsl
 cu124-torch250 = ["bitsandbytes (>=0.43.3)", "unsloth[cu124onlytorch250]", "unsloth[huggingface]"]
 cu124-torch251 = ["bitsandbytes (>=0.43.3)", "unsloth[cu124onlytorch251]", "unsloth[huggingface]"]
 cu124onlytorch250 = ["xformers (==0.0.28.post2)"]
-cu124onlytorch251 = ["xformers (==0.0.28.post3)"]
+cu124onlytorch251 = ["xformers (==0.0.29.post1)"]
 flashattention = ["flash-attn (>=2.6.3)", "ninja", "packaging"]
-huggingface = ["accelerate (>=0.34.1)", "datasets (>=2.16.0)", "hf_transfer", "huggingface_hub", "numpy", "packaging", "peft (>=0.7.1,!=0.11.0)", "protobuf (<4.0.0)", "psutil", "sentencepiece (>=0.2.0)", "tqdm", "transformers (>=4.46.1,!=4.47.0)", "trl (>=0.7.9,!=0.9.0,!=0.9.1,!=0.9.2,!=0.9.3)", "tyro", "unsloth_zoo (>=2024.12.7)", "wheel (>=0.42.0)"]
+huggingface = ["accelerate (>=0.34.1)", "datasets (>=2.16.0)", "hf_transfer", "huggingface_hub", "numpy", "packaging", "peft (>=0.7.1,!=0.11.0)", "protobuf (<4.0.0)", "psutil", "sentencepiece (>=0.2.0)", "tqdm", "transformers (>=4.46.1,!=4.47.0)", "trl (>=0.7.9,!=0.9.0,!=0.9.1,!=0.9.2,!=0.9.3)", "tyro", "unsloth_zoo (>=2025.1.2)", "wheel (>=0.42.0)"]
 kaggle = ["unsloth[huggingface]"]
 kaggle-new = ["bitsandbytes (>=0.43.3)", "unsloth[huggingface]"]
 
@@ -3015,4 +3015,4 @@ propcache = ">=0.2.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "0d8de3c39357c7de00008faf9a726eff47a496b3c8f14c31a2fd827ce36087d4"
+content-hash = "1838b6dc90b3a472bd17f71efa0669369fd7dcb81a953b1fda31927d90ab6116"

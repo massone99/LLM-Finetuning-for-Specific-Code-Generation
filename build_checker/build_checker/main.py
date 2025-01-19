@@ -5,10 +5,15 @@ import json
 import os
 import sys
 
-# Add parent directory to path to import retrieve_model_output
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+import os
+import sys
+from pathlib import Path
 
-from build_checker.log.logger import logger
+# Get the root directory of the project
+ROOT_DIR = Path(__file__).parent.parent.parent
+sys.path.append(str(ROOT_DIR))
+
+from build_checker.build_checker.log.logger import logger
 
 
 hash_file_path = "res/config/processed_hashes.json"
