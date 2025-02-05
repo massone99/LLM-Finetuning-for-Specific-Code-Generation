@@ -1,13 +1,12 @@
-import tkinter as tk
-from tkinter import filedialog
 import hashlib
 import json
 import os
 import sys
-
-import os
-import sys
 from pathlib import Path
+from PyQt5.QtWidgets import (
+    QMainWindow, QWidget, QVBoxLayout, QLabel, QPushButton, 
+    QCheckBox, QApplication, QFileDialog
+)
 
 # Get the root directory of the project
 ROOT_DIR = Path(__file__).parent.parent.parent
@@ -15,16 +14,14 @@ sys.path.append(str(ROOT_DIR))
 
 from build_checker.build_checker.log.logger import logger
 
-
 hash_file_path = "res/config/processed_hashes.json"
 current_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 scala_proj_dir = current_dir + "/res/akka_placeholder"
 
 output_directory = "res/akka_placeholder"
 # Define the path to the Main.scala file
-main_scala_path = os.path.join(
-    output_directory, "src/main/scala/Main.scala"
-)
+main_scala_path = os.path.join(output_directory, "src/main/scala/Main.scala")
+failing_snippets_path = "res/config/failing_snippets.json"
 
 def load_processed_hashes(hash_file_path):
     if os.path.exists(hash_file_path):
@@ -36,24 +33,24 @@ def load_processed_hashes(hash_file_path):
         logger.info("No processed hashes file found. Starting fresh.")
     return processed_hashes
 
-
 def select_file() -> str:
-    """Opens a file dialog to select a file.
-
+    """Opens a file dialog to select a file using PyQt5.
+    
     Returns:
         str: The path of the selected file.
     """
-    file_path = filedialog.askopenfilename(
-        title="Select a File",
-        initialdir="../dataset_builder/data/",  # Starting directory set to current working directory
-        filetypes=(("JSON files", "*.json"), ("All files", "*.*")),
+    dialog = QFileDialog()
+    file_path, _ = dialog.getOpenFileName(
+        caption="Select Dataset File",
+        directory="../dataset_builder/data/",
+        filter="JSON Files (*.json);;All Files (*.*)"
     )
     if file_path:
         logger.info(f"Selected file: {file_path}")
         return file_path
     else:
         logger.warning("No file selected.")
-
+        return None
 
 def load_json_dataset(json_file_path) -> dict:
     if not os.path.exists(json_file_path):
@@ -70,7 +67,7 @@ def load_json_dataset(json_file_path) -> dict:
         return None
 
 def compute_hash(prompt, code):
-    concatenated = (prompt + code).encode('utf-8')
+    concatenated = (prompt + code).encode("utf-8")
     return hashlib.sha256(concatenated).hexdigest()
 
 def save_processed_hashes(processed_hashes, hash_file_path):
@@ -78,25 +75,40 @@ def save_processed_hashes(processed_hashes, hash_file_path):
         json.dump(list(processed_hashes), f)
     logger.info(f"Saved {len(processed_hashes)} processed hashes.")
 
+def save_failing_snippets(failing_snippets, failing_snippets_path):
+    with open(failing_snippets_path, "w") as f:
+        json.dump(failing_snippets, f, indent=4)
+    logger.info(f"Saved {len(failing_snippets)} failing snippets.")
 
-def process_snippets(dataset, build_flag, run_flag):
+def process_snippets(dataset, build_flag, run_flag, use_hashes=False):
+    """Process code snippets with optional hash checking.
+    
+    Args:
+        dataset: The dataset to process
+        build_flag (bool): Whether to build the project
+        run_flag (bool): Whether to run the project
+        use_hashes (bool): Whether to use hash checking to skip processed items
+    """
     if dataset is None:
         logger.error("No dataset file provided. Stopping further processing.")
         return
 
-    processed_hashes = load_processed_hashes(hash_file_path)
+    processed_hashes = load_processed_hashes(hash_file_path) if use_hashes else set()
+    successful_runs = 0
+    total_snippets = 0
+    failing_snippets = []
 
     # Iterate over each conversation
     for idx, conversation in enumerate(dataset):
         assistant_messages, human_prompts = get_prompt_and_code(conversation)
 
         for code, human_prompt in zip(assistant_messages, human_prompts):
+            total_snippets += 1
             # Compute the hash of the current pair to check if it has already been processed
             current_hash = compute_hash(human_prompt, code)
-            if current_hash in processed_hashes:
+            if use_hashes and current_hash in processed_hashes:
                 logger.info(f"Skipping already processed pair at index {idx}.")
                 continue
-
 
             logger.debug("Path of scala file: " + main_scala_path)
 
@@ -111,20 +123,32 @@ def process_snippets(dataset, build_flag, run_flag):
 
             # Run the Scala project and log the result
             if run_flag:
-                run_status = run_project(output_directory)
-                if not run_status:
-                    logger.error("Error running project. Prompt and code returning error:\n")
+                run_status, run_output = run_project(output_directory)
+                if run_status:
+                    logger.info(f"Run successful for conversation idx: {idx}")
+                    successful_runs += 1
+                else:
+                    logger.error(
+                        "Error running project. Prompt and code returning error:\n"
+                    )
                     logger.error(f"Idx conversation: {idx}")
                     logger.error(f"Prompt: {human_prompt}")
-                    # logger.error(f"Code: {code}")
-                    return
+                    logger.error(f"Run output: {run_output}")
+                    failing_snippets.append({
+                        "idx": idx,
+                        "prompt": human_prompt,
+                        "code": code,
+                        "error": run_output
+                    })
 
-            processed_hashes.add(current_hash)
-            save_processed_hashes(processed_hashes, hash_file_path)
+            if use_hashes:
+                processed_hashes.add(current_hash)
+                save_processed_hashes(processed_hashes, hash_file_path)
             logger.info(f"Conversation idx: {idx+1} processed successfully.")
 
+    save_failing_snippets(failing_snippets, failing_snippets_path)
+    logger.info(f"{successful_runs}/{total_snippets} snippets ran successfully.")
     logger.info(f"{len(dataset)} conversations processed successfully.")
-
 
 def get_prompt_and_code(conversation):
     assistant_messages = [
@@ -139,8 +163,7 @@ def get_prompt_and_code(conversation):
     ]
     return assistant_messages, human_prompts
 
-
-def run_project(project_directory) -> bool:
+def run_project(project_directory) -> tuple:
     import subprocess
 
     logger.debug(f"Running project in directory: {project_directory}")
@@ -148,17 +171,16 @@ def run_project(project_directory) -> bool:
         result = subprocess.run(
             ["sbt", "run"],
             cwd=project_directory,
-            # If the command launch fails, an exception is raised
             check=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
-        return True
+        return True, result.stdout.decode('utf-8')
     except subprocess.CalledProcessError as e:
-        return False
+        return False, e.stderr.decode('utf-8')
     except FileNotFoundError:
         logger.error("sbt not found. Please ensure sbt is installed and in your PATH")
-        return False
+        return False, "sbt not found. Please ensure sbt is installed and in your PATH"
 
 def build_project(project_directory):
     import subprocess
@@ -181,11 +203,10 @@ def build_project(project_directory):
         logger.error("sbt not found. Please ensure sbt is installed and in your PATH")
         return False
 
-
 def __calc_working_code_samples(dataset, run_flag) -> tuple:
-    '''
+    """
     Calculate the number of working code samples in the dataset
-    '''
+    """
     from retrieve_model_output import extract_prompt_and_code
 
     if dataset is None:
@@ -201,23 +222,21 @@ def __calc_working_code_samples(dataset, run_flag) -> tuple:
         prompt, code = extract_prompt_and_code(generated)
 
         # Define the path to the Main.scala file
-        main_scala_path = os.path.join(
-            scala_proj_dir, "src/main/scala/Main.scala"
-        )
+        main_scala_path = os.path.join(scala_proj_dir, "src/main/scala/Main.scala")
 
         with open(main_scala_path, "w") as scala_file:
             scala_file.write(code)
 
         # Run the Scala project
         if run_flag:
-            run_status = run_project(scala_proj_dir)
+            run_status, run_output = run_project(scala_proj_dir)
             if not run_status:
                 logger.error("Code causing error!")
+                logger.error(f"Run output: {run_output}")
             else:
                 running_examples += 1
     logger.debug(f"Running examples: {running_examples}/{len(results)}")
     return running_examples, len(results)
-
 
 def evaluate_generated_code(dataset_path, run_flag) -> tuple:
     """
@@ -242,23 +261,88 @@ def evaluate_generated_code(dataset_path, run_flag) -> tuple:
 
     return __calc_working_code_samples(dataset, run_flag)
 
+class DatasetProcessorGUI(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Dataset Processor")
+        self.setGeometry(100, 100, 600, 200)
 
+        # Create central widget and layout
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
+        layout = QVBoxLayout(central_widget)
+
+        # File selection area
+        self.file_label = QLabel("No file selected")
+        self.select_button = QPushButton("Select Dataset")
+        self.select_button.clicked.connect(self.select_file)
+
+        # Checkboxes for flags
+        self.build_checkbox = QCheckBox("Build Project")
+        self.run_checkbox = QCheckBox("Run Project")
+        self.run_checkbox.setChecked(True)  # Default to True
+
+        # Add hash checkbox
+        self.hash_checkbox = QCheckBox("Use Processed Hashes")
+        self.hash_checkbox.setChecked(False)
+
+        # Process button
+        self.process_button = QPushButton("Process Dataset")
+        self.process_button.clicked.connect(self.process_dataset)
+        self.process_button.setEnabled(False)
+
+        # Status label
+        self.status_label = QLabel("")
+
+        # Add widgets to layout
+        layout.addWidget(self.file_label)
+        layout.addWidget(self.select_button)
+        layout.addWidget(self.build_checkbox)
+        layout.addWidget(self.run_checkbox)
+        layout.addWidget(self.hash_checkbox)
+        layout.addWidget(self.process_button)
+        layout.addWidget(self.status_label)
+
+        self.selected_file = None
+
+    def select_file(self):
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Select Dataset File",
+            "../dataset_builder/data/",
+            "JSON Files (*.json);;All Files (*.*)"
+        )
+        if file_path:
+            self.selected_file = file_path
+            self.file_label.setText(f"Selected: {os.path.basename(file_path)}")
+            self.process_button.setEnabled(True)
+            self.hash_checkbox.setEnabled(True)
+
+    def process_dataset(self):
+        if self.selected_file:
+            self.status_label.setText("Loading dataset...")
+            dataset = load_json_dataset(self.selected_file)
+
+            if dataset:
+                self.status_label.setText("Processing dataset...")
+                try:
+                    process_snippets(
+                        dataset,
+                        build_flag=self.build_checkbox.isChecked(),
+                        run_flag=self.run_checkbox.isChecked(),
+                        use_hashes=self.hash_checkbox.isChecked()
+                    )
+                    self.status_label.setText("Processing completed successfully!")
+                except Exception as e:
+                    self.status_label.setText(f"Error during processing: {str(e)}")
+            else:
+                self.status_label.setText("Error loading dataset")
 
 def main():
-    root = tk.Tk()
-    root.withdraw()  # Hide the root window
-    # selected_file_path = select_file()
-    selected_file_path = "../dataset_builder/data/synthetic_data/dataset_llama.json"
-
-    # FIXME
-    dataset = load_json_dataset(selected_file_path)
-    process_snippets(dataset, build_flag=False, run_flag=True)
-
-    # Loading results JSON
-    # selected_file_path = "/home/lorix/Documents/dev/uni/TESI/python/llama_finetune/res/data/results/evaluation_results_loaded_finetuned_trainsize43_20241216.json"
-
-    # dataset = load_json_dataset(selected_file_path)
-    # __calc_working_code_samples(dataset, run_flag=True)
+    app = QApplication(sys.argv)
+    window = DatasetProcessorGUI()
+    window.show()
+    sys.exit(app.exec_())
 
 if __name__ == "__main__":
     main()
