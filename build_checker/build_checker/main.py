@@ -79,7 +79,7 @@ def save_processed_hashes(processed_hashes, hash_file_path):
     logger.info(f"Saved {len(processed_hashes)} processed hashes.")
 
 
-def process_projects(dataset, build_flag, run_flag):
+def process_snippets(dataset, build_flag, run_flag):
     if dataset is None:
         logger.error("No dataset file provided. Stopping further processing.")
         return
@@ -252,7 +252,7 @@ def main():
 
     # FIXME
     dataset = load_json_dataset(selected_file_path)
-    process_projects(dataset, build_flag=False, run_flag=True)
+    process_snippets(dataset, build_flag=False, run_flag=True)
 
     # Loading results JSON
     # selected_file_path = "/home/lorix/Documents/dev/uni/TESI/python/llama_finetune/res/data/results/evaluation_results_loaded_finetuned_trainsize43_20241216.json"
