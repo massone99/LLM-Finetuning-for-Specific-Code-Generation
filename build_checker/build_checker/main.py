@@ -20,6 +20,12 @@ hash_file_path = "res/config/processed_hashes.json"
 current_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 scala_proj_dir = current_dir + "/res/akka_placeholder"
 
+output_directory = "res/akka_placeholder"
+# Define the path to the Main.scala file
+main_scala_path = os.path.join(
+    output_directory, "src/main/scala/Main.scala"
+)
+
 def load_processed_hashes(hash_file_path):
     if os.path.exists(hash_file_path):
         with open(hash_file_path, "r") as f:
@@ -73,7 +79,7 @@ def save_processed_hashes(processed_hashes, hash_file_path):
     logger.info(f"Saved {len(processed_hashes)} processed hashes.")
 
 
-def process_projects(dataset, output_directory, build_flag, run_flag):
+def process_projects(dataset, build_flag, run_flag):
     if dataset is None:
         logger.error("No dataset file provided. Stopping further processing.")
         return
@@ -82,28 +88,16 @@ def process_projects(dataset, output_directory, build_flag, run_flag):
 
     # Iterate over each conversation
     for idx, conversation in enumerate(dataset):
-        assistant_messages = [
-            msg["value"]
-            for msg in conversation.get("conversations", [])
-            if msg.get("from") == "assistant"
-        ]
-
-        human_prompts = [
-            msg["value"]
-            for msg in conversation.get("conversations", [])
-            if msg.get("from") == "human"
-        ]
+        assistant_messages, human_prompts = get_prompt_and_code(conversation)
 
         for code, human_prompt in zip(assistant_messages, human_prompts):
+            # Compute the hash of the current pair to check if it has already been processed
             current_hash = compute_hash(human_prompt, code)
             if current_hash in processed_hashes:
                 logger.info(f"Skipping already processed pair at index {idx}.")
                 continue
 
-            # Define the path to the Main.scala file
-            main_scala_path = os.path.join(
-                output_directory, "src/main/scala/Main.scala"
-            )
+
             logger.debug("Path of scala file: " + main_scala_path)
 
             with open(main_scala_path, "w") as scala_file:
@@ -111,11 +105,11 @@ def process_projects(dataset, output_directory, build_flag, run_flag):
 
             logger.info(f"Wrote code to {main_scala_path}")
 
-            # Build the Scala project
+            # Build the Scala project (and don't run log anything particular)
             if build_flag:
                 build_project(output_directory)
 
-            # Run the Scala project
+            # Run the Scala project and log the result
             if run_flag:
                 run_status = run_project(output_directory)
                 if not run_status:
@@ -123,13 +117,28 @@ def process_projects(dataset, output_directory, build_flag, run_flag):
                     logger.error(f"Idx conversation: {idx}")
                     logger.error(f"Prompt: {human_prompt}")
                     # logger.error(f"Code: {code}")
-
                     return
+
             processed_hashes.add(current_hash)
             save_processed_hashes(processed_hashes, hash_file_path)
             logger.info(f"Conversation idx: {idx+1} processed successfully.")
 
     logger.info(f"{len(dataset)} conversations processed successfully.")
+
+
+def get_prompt_and_code(conversation):
+    assistant_messages = [
+        msg["value"]
+        for msg in conversation.get("conversations", [])
+        if msg.get("from") == "assistant"
+    ]
+    human_prompts = [
+        msg["value"]
+        for msg in conversation.get("conversations", [])
+        if msg.get("from") == "human"
+    ]
+    return assistant_messages, human_prompts
+
 
 def run_project(project_directory) -> bool:
     import subprocess
@@ -174,6 +183,9 @@ def build_project(project_directory):
 
 
 def __calc_working_code_samples(dataset, run_flag) -> tuple:
+    '''
+    Calculate the number of working code samples in the dataset
+    '''
     from retrieve_model_output import extract_prompt_and_code
 
     if dataset is None:
@@ -240,11 +252,13 @@ def main():
 
     # FIXME
     dataset = load_json_dataset(selected_file_path)
-    output_path = "res/akka_placeholder"
-    process_projects(dataset, output_path, build_flag=False, run_flag=True)
+    process_projects(dataset, build_flag=False, run_flag=True)
 
     # Loading results JSON
     # selected_file_path = "/home/lorix/Documents/dev/uni/TESI/python/llama_finetune/res/data/results/evaluation_results_loaded_finetuned_trainsize43_20241216.json"
 
     # dataset = load_json_dataset(selected_file_path)
     # __calc_working_code_samples(dataset, run_flag=True)
+
+if __name__ == "__main__":
+    main()
