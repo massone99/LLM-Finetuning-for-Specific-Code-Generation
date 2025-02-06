@@ -128,17 +128,24 @@ def process_snippets(dataset, build_flag, run_flag, use_hashes=False):
                     logger.info(f"Run successful for conversation idx: {idx}")
                     successful_runs += 1
                 else:
+                    # Extract error cause from run output
+                    error_lines = run_output.strip().split('\n')
+                    error_cause = error_lines[-1] if error_lines else "Unknown error"
+                    
                     logger.error(
                         "Error running project. Prompt and code returning error:\n"
                     )
                     logger.error(f"Idx conversation: {idx}")
                     logger.error(f"Prompt: {human_prompt}")
                     logger.error(f"Run output: {run_output}")
+                    logger.error(f"Error cause: {error_cause}")
+                    
                     failing_snippets.append({
                         "idx": idx,
-                        "prompt": human_prompt,
+                        "prompt": human_prompt, 
                         "code": code,
-                        "error": run_output
+                        "error_output": run_output,
+                        "error_cause": error_cause
                     })
 
             if use_hashes:
@@ -174,10 +181,13 @@ def run_project(project_directory) -> tuple:
             check=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            text=True  # Use text mode for string output
         )
-        return True, result.stdout.decode('utf-8')
+        return True, result.stdout
     except subprocess.CalledProcessError as e:
-        return False, e.stderr.decode('utf-8')
+        # Extract error details from stderr
+        error_output = e.stderr
+        return False, error_output
     except FileNotFoundError:
         logger.error("sbt not found. Please ensure sbt is installed and in your PATH")
         return False, "sbt not found. Please ensure sbt is installed and in your PATH"
