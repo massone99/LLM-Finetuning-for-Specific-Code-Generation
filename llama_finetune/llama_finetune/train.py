@@ -1,3 +1,4 @@
+import os
 from datasets import load_dataset
 from peft import PeftModel
 from transformers import TrainingArguments, DataCollatorForSeq2Seq
@@ -138,15 +139,15 @@ def format_training_params(peft_config, training_args):
 #   poetry run python src/train.py --load-model ./res/outputs/finetuned_model
 def main():
     import argparse
-
+    #  TODO: ADD ASSERT ABOUT THE CURRENT WORK DIRECTORY: THE SCRIPT SHOULD BE EXECUTED INSIDE llama_finetune/llama_finetune
     # Parse command line arguments
     parser = argparse.ArgumentParser(description='Train or load a fine-tuned model')
     parser.add_argument('--load-model', type=str, help='Path to load fine-tuned model from', default=None)
-    parser.add_argument('--dataset-path', type=str, default="./res/data/dataset_llama.json",
+    parser.add_argument('--dataset-path', type=str, default="../res/data/dataset_llama.json",
                         help='Path to training dataset')
-    parser.add_argument('--test-dataset-path', type=str, default="./res/data/test_set.json",
+    parser.add_argument('--test-dataset-path', type=str, default="../res/data/test_set.json",
                         help='Path to test dataset')
-    parser.add_argument('--output-dir', type=str, default="./res/outputs", help='Directory for output files')
+    parser.add_argument('--output-dir', type=str, default="../res/outputs", help='Directory for output files')
     args = parser.parse_args()
 
     # Configuration
@@ -204,6 +205,10 @@ def main():
         training_metrics = {"training_time_seconds": training_time,
             "training_stats": training_output.metrics if training_output else None}
         import json
+        
+        # Create output directory if it doesn't exist
+        os.makedirs(output_dir, exist_ok=True)
+        
         with open(f"{output_dir}/training_metrics.json", "w") as f:
             json.dump(training_metrics, f, indent=2)
 

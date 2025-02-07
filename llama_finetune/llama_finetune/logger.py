@@ -6,7 +6,11 @@ class FileLogger:
     """
     def __init__(self, filename):
         self.terminal = sys.stdout
-        self.log = open(filename, 'w')
+        try:
+            self.log = open(filename, 'w')
+        except Exception as e:
+            print("Current working directory:", os.getcwd())
+            raise e
     
     def write(self, text, heading: int = 0):
         """
@@ -28,4 +32,4 @@ import os
 # Print the current working directory
 print("Current working directory:", os.getcwd())
 
-file_logger = FileLogger('./res/report/results.adoc')
+file_logger = FileLogger('../res/report/results.adoc')

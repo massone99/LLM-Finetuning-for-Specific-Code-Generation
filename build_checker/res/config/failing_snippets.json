@@ -1,0 +1,9 @@
+[
+    {
+        "idx": 43,
+        "prompt": "Write a Scala application using Akka Typed that sets up a simple Akka Cluster. The application should include an `App` object with a `main` method that initializes the Actor System on specified ports and spawns a `ClusterListener` actor to monitor cluster events.",
+        "code": "package sample.cluster.simple\n\nimport akka.actor.typed.scaladsl.Behaviors\nimport akka.actor.typed.ActorSystem\nimport akka.actor.typed.Behavior\nimport com.typesafe.config.ConfigFactory\n\nobject App {\n\n  object RootBehavior {\n    def apply(): Behavior[Nothing] = Behaviors.setup[Nothing] { context =>\n      // Create an actor that handles cluster domain events\n      context.spawn(ClusterListener(), \"ClusterListener\")\n\n      Behaviors.empty\n    }\n  }\n\n  def main(args: Array[String]): Unit = {\n    val ports =\n      if (args.isEmpty)\n        Seq(25251, 25252, 0)\n      else\n        args.toSeq.map(_.toInt)\n    ports.foreach(startup)\n  }\n\n  def startup(port: Int): Unit = {\n    // Override the configuration of the port\n    val config = ConfigFactory.parseString(s\"\"\"\n      akka.remote.artery.canonical.port=$port\n      \"\"\").withFallback(ConfigFactory.load())\n\n    // Create an Akka system\n    ActorSystem[Nothing](RootBehavior(), \"ClusterSystem\", config)\n  }\n\n}",
+        "error_output": "",
+        "error_cause": ""
+    }
+]

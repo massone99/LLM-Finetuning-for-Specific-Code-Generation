@@ -6,6 +6,8 @@ authors = ["massone99 <lorenzo.studio@studio.unibo.it>"]
 
 [tool.poetry.dependencies]
 python = "^3.12"
+pyqt5 = "^5.15.11"
+tqdm = "^4.67.1"
 
 
 [build-system]

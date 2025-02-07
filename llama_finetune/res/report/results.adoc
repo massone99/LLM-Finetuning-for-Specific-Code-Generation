@@ -1,0 +1,12 @@
+
+== 
+Evaluation Results (loaded_finetuned_trainsize45):
+
+
+=== 
+Average BLEU Score: 0.3793
+
+ 
+Detailed results saved to: ../res/data/results/evaluation_results_loaded_finetuned_trainsize45_20250204.json
+
+ Running examples: 9/17

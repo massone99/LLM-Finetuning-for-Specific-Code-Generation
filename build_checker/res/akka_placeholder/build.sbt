@@ -10,4 +10,6 @@ lazy val root = project
 
     libraryDependencies += "org.scalameta" %% "munit" % "1.0.0" % Test,
     libraryDependencies += "com.typesafe.akka" %% "akka-actor-typed" % "2.8.2",
+    libraryDependencies += "com.typesafe.akka" %% "akka-cluster-typed" % "2.8.2",
+    libraryDependencies += "com.typesafe.akka" %% "akka-cluster" % "2.8.2"
     )

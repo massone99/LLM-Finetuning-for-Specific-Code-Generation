@@ -5,8 +5,9 @@ import sys
 from pathlib import Path
 from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QLabel, QPushButton, 
-    QCheckBox, QApplication, QFileDialog
+    QCheckBox, QApplication, QFileDialog, QTextEdit
 )
+
 
 # Get the root directory of the project
 ROOT_DIR = Path(__file__).parent.parent.parent
@@ -271,6 +272,63 @@ def evaluate_generated_code(dataset_path, run_flag) -> tuple:
 
     return __calc_working_code_samples(dataset, run_flag)
 
+class TestSnippetWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Test Snippet")
+        self.setGeometry(200, 200, 800, 600)
+
+        # Create central widget and layout
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
+        layout = QVBoxLayout(central_widget)
+
+        # Add text edit for code input
+        self.code_input = QTextEdit()
+        self.code_input.setPlaceholderText("Paste your Scala code here...")
+        
+        # Add test button
+        self.test_button = QPushButton("Test Snippet")
+        self.test_button.clicked.connect(self.test_snippet)
+        
+        # Add result label
+        self.result_label = QLabel("")
+        
+        # Add widgets to layout
+        layout.addWidget(self.code_input)
+        layout.addWidget(self.test_button)
+        layout.addWidget(self.result_label)
+
+    def test_snippet(self):
+        code = self.code_input.toPlainText()
+        if not code.strip():
+            self.result_label.setText("Please enter some code")
+            return
+
+        # Format and de-minify the code
+        formatted_code = self.format_scala_code(code)
+
+        # Write code to scala file
+        with open(main_scala_path, "w") as scala_file:
+            scala_file.write(formatted_code)
+
+        # Run the project
+        run_status, run_output = run_project(output_directory)
+        
+        if run_status:
+            self.result_label.setText("Success! Code ran without errors.")
+            logger.info("Success! Code ran without errors.")  # Print to stdout
+        else:
+            error_lines = run_output.strip().split('\n')
+            error_cause = error_lines[-1] if error_lines else "Unknown error"
+            self.result_label.setText(f"Error: {error_cause}")
+            logger.error(f"Error: {error_cause}")  # Print to stdout
+            logger.error(f"Run output: {run_output}") # Print full output to stdout
+
+    def format_scala_code(self, code):
+        formatted_code = code.replace("\\n", "\n").replace("\\t", "\t")
+        return formatted_code # Print full output to stdout
+
 class DatasetProcessorGUI(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -314,6 +372,22 @@ class DatasetProcessorGUI(QMainWindow):
         layout.addWidget(self.status_label)
 
         self.selected_file = None
+        
+        # Add test snippet button
+        self.test_button = QPushButton("Test Snippet")
+        self.test_button.clicked.connect(self.open_test_window)
+        
+        # Add to layout (add before status_label)
+        layout.addWidget(self.test_button)
+        layout.addWidget(self.status_label)
+        
+        # Add test window property
+        self.test_window = None
+    
+    def open_test_window(self):
+        if not self.test_window:
+            self.test_window = TestSnippetWindow()
+        self.test_window.show()
 
     def select_file(self):
         file_path, _ = QFileDialog.getOpenFileName(

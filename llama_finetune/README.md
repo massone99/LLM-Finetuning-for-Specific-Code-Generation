@@ -6,11 +6,11 @@ This project implements fine-tuning of the Llama 3.2 model for code generation t
 
 ```
 llama_finetune/
-├── data/               # Dataset files
-├── src/               # Source code
+├── res/               # Dataset files
+├── llama_finetune/    # Source code
 │   ├── train.py       # Training script
+│   ├── logger.py      # Logger script
 │   └── evaluate.py    # Evaluation script
-├── tests/             # Test files
 ├── outputs/           # Training outputs and model checkpoints
 ├── pyproject.toml     # Poetry dependencies
 └── README.md          # This file
@@ -44,15 +44,15 @@ pip install codebleu==0.1.7
 To fine-tune the model:
 
 ```bash
-poetry run python src/train.py
+poetry run python train.py
 ```
 
 ### Evaluation
 
-To evaluate the model:
+To load and evaluate the trained model:
 
 ```bash
-poetry run python src/evaluate.py
+poetry run python train.py --load-model ../res/outputs/finetuned_model
 ```
 
 ## Model Details

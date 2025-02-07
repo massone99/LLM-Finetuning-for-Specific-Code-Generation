@@ -20,3 +20,6 @@ target/
 *.txt
 # Ignore the checkpoints made by unsloth
 */outputs/checkpoint*
+
+*/.history
+.history
