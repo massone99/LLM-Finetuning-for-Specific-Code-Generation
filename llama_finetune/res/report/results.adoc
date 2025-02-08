@@ -4,9 +4,12 @@ Evaluation Results (loaded_finetuned_trainsize45):
 
 
 === 
-Average BLEU Score: 0.3793
+Average BLEU Score: 0.3618
 
  
-Detailed results saved to: ../res/data/results/evaluation_results_loaded_finetuned_trainsize45_20250204.json
+Detailed results saved to: ../res/data/results/evaluation_results_loaded_finetuned_trainsize45_20250209.json
 
- Running examples: 9/17
+ Sending request to build checker API inline content
+
+
+ Running examples: 7/34

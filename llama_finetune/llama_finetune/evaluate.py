@@ -106,8 +106,13 @@ def generate_code(
 
 def compute_bleu_for_model(
     model, tokenizer, test_dataset_path, train_size, output_prefix="baseline"
-):
-    """Evaluate model performance using BLEU metric."""
+) -> Tuple[str, float]:
+    """
+    Evaluate model performance using BLEU metric.
+    
+    Returns:
+        Tuple[str, float]: A tuple containing the output file path and the average BLEU score
+    """
     from evaluate import compute_bleu
     from datasets import load_dataset
     from datetime import datetime
@@ -164,19 +169,19 @@ def compute_bleu_for_model(
     os.makedirs("../res/data/results", exist_ok=True)
 
     # Save evaluation results
-    output_file = f'../res/data/results/evaluation_results_{output_prefix}_{datetime.now().strftime("%Y%m%d")}.json'
-    with open(output_file, "w") as f:
+    results_file = f'../res/data/results/evaluation_results_{output_prefix}_{datetime.now().strftime("%Y%m%d")}.json'
+    with open(results_file, "w") as f:
         json.dump(evaluation_results, f, indent=2)
 
     eval_res_title_str = f"\nEvaluation Results ({output_prefix}):\n"
     bleu_score_str = f"\nAverage BLEU Score: {avg_bleu:.4f}"
-    detailed_res_str = f"\nDetailed results saved to: {output_file}"
+    detailed_res_str = f"\nDetailed results saved to: {results_file}"
 
     file_logger.write_and_print(eval_res_title_str, heading=2)
     file_logger.write_and_print(bleu_score_str, heading=3)
     file_logger.write_and_print(detailed_res_str)
 
-    return output_file
+    return results_file, avg_bleu
 
 
 def extract_generated_code(output_file, output_prefix) -> Tuple[bool, str]:
@@ -201,7 +206,7 @@ def extract_generated_code(output_file, output_prefix) -> Tuple[bool, str]:
         output_file, generated_code_dir, file_extension=".txt"
     )
     if success:
-        print(f"Generated code samples saved to: {generated_code_dir}")
+        print(f"Generated code samples saved to: {generated_code_dir}\n")
     else:
         print(f"Warning: Failed to extract code samples: {message}")
     return success, generated_code_dir if success else ""
@@ -263,7 +268,7 @@ def evaluate_model(
 ):
     dataset_path = None
     try:
-        dataset_path = compute_bleu_for_model(
+        dataset_path, avg_bleu = compute_bleu_for_model(
             model, tokenizer, test_dataset_path, train_size, output_prefix
         )
         if dataset_path is None:
@@ -287,10 +292,10 @@ def evaluate_model(
         print("Processing dataset inline...")
         client = BuildCheckerClient()
         work_sampl, tot_sampl = client.process_dataset_inline_content(data_for_checker, run=True)
-        file_logger.write_and_print(f"Running examples: {work_sampl}/{tot_sampl}")
+        file_logger.write_and_print(f"\nRunning examples: {work_sampl}/{tot_sampl}\n")
         
     except Exception as e:
         print(f"An error occurred during evaluation: {e}")
         raise e
 
-    return dataset_path
+    return dataset_path, avg_bleu

@@ -1,85 +1,45 @@
-package sample.cluster.simple
+import akka.actor.{Actor, ActorRef, ActorSystem, OneForOneStrategy, Props, SupervisorStrategy, Terminated}
+import akka.actor.SupervisorStrategy._
 
+import scala.concurrent.duration._
 
-import akka.actor.typed.scaladsl.Behaviors
-import akka.actor.typed.ActorSystem
-import akka.actor.typed.Behavior
-import com.typesafe.config.ConfigFactory
+// Define the ChildActor
+class FaultyChildActor extends Actor {
+  def receive: Receive = {
+    case "causeNull" =>
+      throw new NullPointerException("ChildActor received null cause.")
+    case msg =>
+      println(s"ChildActor received message: $msg")
+  }
+}
 
-
-object App {
-
-
-  object RootBehavior {
-    def apply(): Behavior[Nothing] = Behaviors.setup[Nothing] { context =>
-      // Create an actor that handles cluster domain events
-      context.spawn(ClusterListener(), "ClusterListener")
-
-
-      Behaviors.empty
-    }
+// Define the EscalatingSupervisor Actor
+class EscalatingSupervisor extends Actor {
+  override val supervisorStrategy: SupervisorStrategy = OneForOneStrategy(
+    maxNrOfRetries = 3,
+    withinTimeRange = 1.minute
+  ) {
+    case _: NullPointerException =>
+      println("EscalatingSupervisor: Encountered NullPointerException. Escalating failure.")
+      SupervisorStrategy.Escape
+    case _: Exception =>
+      SupervisorStrategy.None
   }
 
+  // Create the child actor
+  val child: ActorRef = context.actorOf(Props[FaultyChildActor](), "childActor")
 
-  def main(args: Array[String]): Unit = {
-    val ports =
-      if (args.isEmpty)
-        Seq(25251, 25252, 0)
-      else
-        args.toSeq.map(_.toInt)
-    ports.foreach(startup)
+  def receive: Receive = {
+    case msg =>
+      child.forward(msg)
   }
+}
 
+// Usage Example (for testing purposes)
+object EscalatingSupervisorApp extends App {
+  val system = ActorSystem("EscalatingSupervisorSystem")
+  val supervisor = system.actorOf(Props[EscalatingSupervisor](), "supervisor")
 
-  def startup(port: Int): Unit = {
-    // Override the configuration of the port
-    val config = ConfigFactory.parseString(
-      s"""
-      akka.remote.artery.canonical.port=$port
-      """
-    ).withFallback(ConfigFactory.load())
-
-
-    // Create an Akka system
-    ActorSystem[Nothing](RootBehavior(), "ClusterSystem", config)
-  }
-
-
-  object ClusterListener {
-    import akka.actor.typed.ActorRef
-    import akka.cluster.ClusterEvent
-    import akka.cluster.ClusterEvent.MemberEvent
-    import akka.cluster.ClusterEvent.ReachabilityEvent
-    import akka.actor.typed.scaladsl.LoggerOps
-
-
-    sealed trait Event
-    final case class WrappedMemberEvent(event: MemberEvent) extends Event
-    final case class WrappedReachabilityEvent(event: ReachabilityEvent) extends Event
-
-
-    def apply(): Behavior[Event] = {
-      Behaviors.setup { context =>
-        val memberEventAdapter: ActorRef[MemberEvent] =
-          context.messageAdapter(WrappedMemberEvent)
-        val reachabilityEventAdapter: ActorRef[ReachabilityEvent] =
-          context.messageAdapter(WrappedReachabilityEvent)
-
-
-        val cluster = akka.cluster.typed.Cluster(context.system)
-        cluster.subscriptions ! akka.cluster.typed.Subscribe(memberEventAdapter, classOf[ClusterEvent.MemberEvent])
-        cluster.subscriptions ! akka.cluster.typed.Subscribe(reachabilityEventAdapter, classOf[ClusterEvent.ReachabilityEvent])
-
-
-        Behaviors.receiveMessage {
-          case WrappedMemberEvent(memberEvent) =>
-            context.log.info2("MemberEvent: {}", memberEvent)
-            Behaviors.same
-          case WrappedReachabilityEvent(reachabilityEvent) =>
-            context.log.info2("ReachabilityEvent: {}", reachabilityEvent)
-            Behaviors.same
-        }
-      }
-    }
-  }
+  supervisor! "causeNull"
+  supervisor! "Post-null message"
 }

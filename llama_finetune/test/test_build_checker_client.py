@@ -5,15 +5,8 @@ import requests
 from unittest.mock import patch, MagicMock
 from llama_finetune.evaluate import BuildCheckerClient
 
-'''
-The tmp_path fixture is provided by pytest and is used to create temporary directories and files for testing purposes. 
-It is automatically injected into the test function by pytest.
-The directory and its contents are automatically cleaned up after the test function finishes.
-'''
-
-@pytest.mark.integration  # Mark as integration test so it can be run separately
-def test_process_dataset_real_api(tmp_path):
-    # Create a test file with some Scala code
+@pytest.mark.integration
+def test_process_dataset_real_api(tmp_path, start_server):
     test_code = """
     object HelloWorld {
         def main(args: Array[String]): Unit = {
@@ -28,18 +21,17 @@ def test_process_dataset_real_api(tmp_path):
             {"from": "assistant", "value": test_code}
         ]
     }]
-    
+
     with open(test_file, "w") as f:
         json.dump(test_data, f)
 
-    # Create client and process dataset
+    with open(test_file, "r") as f:
+        data_content = json.load(f)
+
     client = BuildCheckerClient(base_url="http://localhost:8000")
-    successful_runs, total_snippets = client.process_dataset(str(test_file))
-    
-    # Print debug information
+    successful_runs, total_snippets = client.process_dataset_inline_content(data_content)
+
     print(f"\nTest file path: {test_file}")
     print(f"Successful runs: {successful_runs}")
     print(f"Total snippets: {total_snippets}")
-    
-    # Assertions
     assert total_snippets > 0, "Expected at least one snippet to be processed"

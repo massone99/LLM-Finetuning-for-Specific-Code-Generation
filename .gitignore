@@ -19,7 +19,7 @@ target/
 # Ignore code generated and extracted
 *.txt
 # Ignore the checkpoints made by unsloth
-*/outputs/checkpoint*
+*/outputs/*
 
 */.history
 .history

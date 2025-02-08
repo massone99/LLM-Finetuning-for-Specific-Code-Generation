@@ -29,7 +29,10 @@ class FileLogger:
 
 import os
 
-# Print the current working directory
-print("Current working directory:", os.getcwd())
+# Get the absolute path to the log file
+log_file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../res/report/results.adoc')
 
-file_logger = FileLogger('../res/report/results.adoc')
+print(f"Log file path: {log_file_path}")
+
+# Print the log file path using the logger
+file_logger = FileLogger(log_file_path)
