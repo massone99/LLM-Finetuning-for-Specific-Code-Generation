@@ -222,15 +222,9 @@ def setup_trainer(model, tokenizer, dataset, max_seq_length, output_dir="outputs
     return trainer
 
 
-# For fine tuning:
-#   poetry run python src/train.py
-# For loading fine-tuned model:
-#   poetry run python src/train.py --load-model ./res/outputs/finetuned_model
-def main():
+def parse_args():
     import argparse
 
-    #  TODO: ADD ASSERT ABOUT THE CURRENT WORK DIRECTORY: THE SCRIPT SHOULD BE EXECUTED INSIDE llama_finetune/llama_finetune
-    # Parse command line arguments
     parser = argparse.ArgumentParser(description="Train or load a fine-tuned model")
     parser.add_argument(
         "--load-model",
@@ -256,7 +250,20 @@ def main():
         default="../res/outputs",
         help="Directory for output files",
     )
-    args = parser.parse_args()
+    return parser.parse_args()
+
+# For fine tuning:
+#   poetry run python src/train.py
+# For loading fine-tuned model:
+#   poetry run python src/train.py --load-model ./res/outputs/finetuned_model
+def main():
+
+    #  TODO: ADD ASSERT ABOUT THE CURRENT WORK DIRECTORY: THE SCRIPT SHOULD BE EXECUTED INSIDE llama_finetune/llama_finetune
+    # Parse command line arguments
+
+    args = parse_args()
+
+    print("Args parsed!")
 
     # Configuration
     max_seq_length = 4096
