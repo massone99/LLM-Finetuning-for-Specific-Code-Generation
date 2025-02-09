@@ -73,7 +73,7 @@ TRAINING_PARAMS = {
 }
 
 
-def store_model_info(output_dir, train_dataset_size, test_dataset_size, trainer_args, avg_bleu, peft_params=PEFT_PARAMS):
+def store_model_info(output_dir, train_dataset_size, test_dataset_size, trainer_args, avg_bleu, samples_info, peft_params=PEFT_PARAMS):
     """
     Compute a unique hash for the model and hyperparameters, and append
     model info to 'trained_models.json' if this hash isn't present yet.
@@ -116,6 +116,10 @@ def store_model_info(output_dir, train_dataset_size, test_dataset_size, trainer_
         "test_dataset_size": test_dataset_size,
         # Evaluation metrics
         "avg_bleu": avg_bleu,
+        "execution_check": {
+            "successful_runs": samples_info[0],
+            "total_snippets": samples_info[1]
+        },  
     }
 
     trained_models_path = os.path.join(output_dir, "trained_models.json")
@@ -126,6 +130,7 @@ def store_model_info(output_dir, train_dataset_size, test_dataset_size, trainer_
             trained_models = json.load(f)
     else:
         trained_models = []
+        os.makedirs(os.path.dirname(trained_models_path), exist_ok=True)
 
     # Check if hash already present
     if any(m["model_hash"] == model_hash for m in trained_models):
@@ -217,25 +222,6 @@ def setup_trainer(model, tokenizer, dataset, max_seq_length, output_dir="outputs
     return trainer
 
 
-def format_training_params(peft_config, training_args):
-    """Format PEFT and training parameters into a readable string."""
-    peft_params = f"\nPEFT Parameters:"
-    peft_params += f"\n- LoRA rank (r): {peft_config.r}"
-    peft_params += f"\n- LoRA alpha: {peft_config.lora_alpha}"
-    peft_params += f"\n- LoRA dropout: {peft_config.lora_dropout}"
-    peft_params += f"\n- Target modules: {peft_config.target_modules}"
-
-    train_params = f"\nTraining Parameters:"
-    train_params += f"\n- Batch size: {training_args.per_device_train_batch_size}"
-    train_params += (
-        f"\n- Gradient accumulation steps: {training_args.gradient_accumulation_steps}"
-    )
-    train_params += f"\n- Learning rate: {training_args.learning_rate}"
-    train_params += f"\n- Number of epochs: {training_args.num_train_epochs}"
-    train_params += f"\n- Max steps: {training_args.max_steps}"
-    train_params += f"\n- Optimizer: {training_args.optim}"
-
-
 # For fine tuning:
 #   poetry run python src/train.py
 # For loading fine-tuned model:
@@ -305,7 +291,7 @@ def main():
         print("Evaluating loaded fine-tuned model...")
         from evaluate import evaluate_model
 
-        results_file, avg_bleu = evaluate_model(
+        results_file, avg_bleu, samples_info = evaluate_model(
             model, tokenizer, args.test_dataset_path, train_dataset_size, output_prefix
         )
 
@@ -315,11 +301,12 @@ def main():
         training_args = TrainingArguments(**local_training_params)
 
         store_model_info(
-            output_dir,
+            "../res/data/trained_models/",
             train_dataset_size,
             len(load_dataset("json", data_files=args.test_dataset_path, split="train")),
             training_args,
             avg_bleu,
+            samples_info,
             PEFT_PARAMS
         )
 
@@ -369,7 +356,7 @@ def main():
         output_prefix = f"after_finetuning_trainsize{train_dataset_size}"
         
         # FIXME
-        results_file, avg_bleu = evaluate_model(
+        results_file, avg_bleu, samples_info = evaluate_model(
             model, tokenizer, args.test_dataset_path, train_dataset_size, output_prefix
         )
         
@@ -380,11 +367,12 @@ def main():
 
         # Store model info
         store_model_info(
-            output_dir,
+            "../res/data/trained_models/",
             train_dataset_size,
             len(load_dataset("json", data_files=args.test_dataset_path, split="train")),
             trainer.args,
             avg_bleu,
+            samples_info,
             PEFT_PARAMS
         )
 

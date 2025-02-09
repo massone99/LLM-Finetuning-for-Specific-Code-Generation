@@ -1,15 +1,14 @@
 import akka.actor.{Actor, ActorRef, ActorSystem, OneForOneStrategy, Props, SupervisorStrategy, Terminated}
 import akka.actor.SupervisorStrategy._
-
 import scala.concurrent.duration._
 
 // Define the ChildActor
 class FaultyChildActor extends Actor {
   def receive: Receive = {
     case "causeNull" =>
-      throw new NullPointerException("ChildActor received null cause.")
+      throw new NullPointerException("Simulated NullPointerException.")
     case msg =>
-      println(s"ChildActor received message: $msg")
+      println(s"ChildActor received: $msg")
   }
 }
 
@@ -20,10 +19,11 @@ class EscalatingSupervisor extends Actor {
     withinTimeRange = 1.minute
   ) {
     case _: NullPointerException =>
-      println("EscalatingSupervisor: Encountered NullPointerException. Escalating failure.")
+      println("EscalatingSupervisor: Encountered NullPointerException. Escaling failure.")
       SupervisorStrategy.Escape
     case _: Exception =>
-      SupervisorStrategy.None
+      println("EscalatingSupervisor: Encountered unknown exception. Escaling failure.")
+      SupervisorStrategy.Escape
   }
 
   // Create the child actor
@@ -40,6 +40,7 @@ object EscalatingSupervisorApp extends App {
   val system = ActorSystem("EscalatingSupervisorSystem")
   val supervisor = system.actorOf(Props[EscalatingSupervisor](), "supervisor")
 
+  supervisor! "Hello"
   supervisor! "causeNull"
-  supervisor! "Post-null message"
+  supervisor! "Are you there?"
 }

@@ -266,6 +266,20 @@ def convert_pairs_to_json(folder_path):
 def evaluate_model(
     model, tokenizer, test_dataset_path, train_size, output_prefix="baseline"
 ):
+    '''
+    Evaluate the model using the specified test dataset and training size.
+    
+    Args:
+        model: The fine-tuned LLM model for code generation.
+        tokenizer: Tokenizer associated with the model.
+        test_dataset_path: The path to the test dataset.
+        train_size: The size of the training dataset.
+        output_prefix: The prefix to use for the output files.
+    
+    Returns:
+        Tuple[str, float, Tuple[int, int]]: A tuple containing the output file path, the average BLEU score, 
+            and a tuple containing the number of successful runs and the total number of snippets processed.
+    '''
     dataset_path = None
     try:
         dataset_path, avg_bleu = compute_bleu_for_model(
@@ -298,4 +312,4 @@ def evaluate_model(
         print(f"An error occurred during evaluation: {e}")
         raise e
 
-    return dataset_path, avg_bleu
+    return dataset_path, avg_bleu, (work_sampl, tot_sampl)

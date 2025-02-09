@@ -23,3 +23,5 @@ target/
 
 */.history
 .history
+
+llama_finetune/llama_finetune/outputs/*
