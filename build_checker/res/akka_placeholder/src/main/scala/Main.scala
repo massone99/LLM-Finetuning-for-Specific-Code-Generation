@@ -1,42 +1,19 @@
-import akka.actor.typed.{ActorSystem, Behavior}
-import akka.actor.typed.scaladsl.Behaviors
-import akka.cluster.typed.{ClusterSingleton, SingletonActor}
-import com.typesafe.config.ConfigFactory
+import akka.actor.{Actor, ActorSystem, Props}
+import akka.stream.ActorMaterializer
+import akka.stream.scaladsl.{Source, Sink}
 
-object ConfigManager {
-  sealed trait Command
-  final case class UpdateConfig(config: String) extends Command
-  case object GetConfig extends Command
-
-  def apply(): Behavior[Command] = Behaviors.receive { (context, message) =>
-    message match {
-      case UpdateConfig(config) =>
-        context.log.info(s"Config updated to: $config")
-        Behaviors.same
-      case GetConfig =>
-        context.log.info("Returning current config")
-        Behaviors.same
-    }
+class StreamProcessingActor extends Actor {
+  implicit val materializer: ActorMaterializer = ActorMaterializer()(context.system)
+  def receive: Receive = {
+    case "start" =>
+      Source(1 to 10).runWith(Sink.foreach(n => println(s"StreamProcessingActor received: $n")))
   }
 }
 
-object ClusterSingletonApp extends App {
-  val config = ConfigFactory.load()
-  val system: ActorSystem[Nothing] = ActorSystem(Behaviors.empty, "ClusterSystem", config)
-
-  val singletonManager = ClusterSingleton(system)
-  val configManagerProxy = singletonManager.init(
-    SingletonActor(
-      Behaviors.supervise(ConfigManager()).onFailure[Exception](
-        akka.actor.typed.SupervisorStrategy.restart
-      ),
-      "ConfigManager"
-    )
-  )
-
-  // Interact with the singleton
-  configManagerProxy ! ConfigManager.UpdateConfig("NewConfigValue")
-
-  Thread.sleep(5000)
+object StreamProcessingApp extends App {
+  val system = ActorSystem("StreamProcessingSystem")
+  val streamActor = system.actorOf(Props[StreamProcessingActor](), "streamActor")
+  streamActor ! "start"
+  Thread.sleep(1000)
   system.terminate()
 }
