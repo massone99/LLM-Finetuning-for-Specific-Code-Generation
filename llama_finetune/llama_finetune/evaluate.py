@@ -7,7 +7,10 @@ import os
 from unsloth import FastLanguageModel
 from unsloth.chat_templates import get_chat_template
 
+from build_client import BuildCheckerClient
+
 from logger import file_logger
+
 # from logger import file_logger
 
 import requests
@@ -25,35 +28,6 @@ sys.path.append(
 
 nltk.download("punkt")
 nltk.download("punkt_tab")
-
-# TODO: extract to separate file
-class BuildCheckerClient:
-    def __init__(self, base_url: str = "http://localhost:8000"):
-        self.base_url = base_url
-
-    def process_dataset_inline_content(
-        self, data_content, build: bool = False, run: bool = True
-    ) -> Tuple[int, int]:
-        """
-        Process a dataset directly from memory via the inline endpoint.
-        """
-        payload = {
-            "data": data_content,
-            "build": build,
-            "run": run,
-            "use_hashes": False,
-        }
-        file_logger.write_and_print("Sending request to build checker API inline content\n")
-
-        response = requests.post(f"{self.base_url}/process-dataset-inline", json=payload)
-        if response.status_code != 200:
-            file_logger.write_and_print(
-                f"API Error ({response.status_code}): {response.text}"
-            )
-            return 0, 0
-
-        result = response.json()
-        return result["successful_runs"], result["total_snippets"]
 
 
 def compute_bleu(reference, candidate):
@@ -109,7 +83,7 @@ def compute_bleu_for_model(
 ) -> Tuple[str, float]:
     """
     Evaluate model performance using BLEU metric.
-    
+
     Returns:
         Tuple[str, float]: A tuple containing the output file path and the average BLEU score
     """
@@ -212,13 +186,12 @@ def extract_generated_code(output_file, output_prefix) -> Tuple[bool, str]:
     return success, generated_code_dir if success else ""
 
 
-
 def convert_pairs_to_json(folder_path):
     # This function scans the folder for files named prompt_X.txt and code_X.txt,
     # reads their content, and constructs a JSON structure with "human" and "assistant" messages.
 
     # Regex to capture indices from filenames like prompt_1.txt or code_12.txt
-    file_pattern = re.compile(r'^(prompt|code)_(\d+)\.txt$')
+    file_pattern = re.compile(r"^(prompt|code)_(\d+)\.txt$")
     # Store found prompts and codes using the index as key
     prompts = {}
     codes = {}
@@ -226,8 +199,8 @@ def convert_pairs_to_json(folder_path):
     for file_name in os.listdir(folder_path):
         match = file_pattern.match(file_name)
         if match:
-            file_type = match.group(1)    # "prompt" or "code"
-            idx = match.group(2)         # e.g. "1", "12"
+            file_type = match.group(1)  # "prompt" or "code"
+            idx = match.group(2)  # e.g. "1", "12"
             full_path = os.path.join(folder_path, file_name)
 
             with open(full_path, "r", encoding="utf-8") as f:
@@ -249,37 +222,32 @@ def convert_pairs_to_json(folder_path):
         if prompt_text or code_text:
             conv = {
                 "conversations": [
-                    {
-                        "from": "human",
-                        "value": prompt_text
-                    },
-                    {
-                        "from": "assistant",
-                        "value": code_text
-                    }
+                    {"from": "human", "value": prompt_text},
+                    {"from": "assistant", "value": code_text},
                 ]
             }
             result.append(conv)
 
     return json.dumps(result, indent=2)
 
+
 def evaluate_model(
     model, tokenizer, test_dataset_path, train_size, output_prefix="baseline"
 ):
-    '''
+    """
     Evaluate the model using the specified test dataset and training size.
-    
+
     Args:
         model: The fine-tuned LLM model for code generation.
         tokenizer: Tokenizer associated with the model.
         test_dataset_path: The path to the test dataset.
         train_size: The size of the training dataset.
         output_prefix: The prefix to use for the output files.
-    
+
     Returns:
-        Tuple[str, float, Tuple[int, int]]: A tuple containing the output file path, the average BLEU score, 
+        Tuple[str, float, Tuple[int, int]]: A tuple containing the output file path, the average BLEU score,
             and a tuple containing the number of successful runs and the total number of snippets processed.
-    '''
+    """
     dataset_path = None
     try:
         dataset_path, avg_bleu = compute_bleu_for_model(
@@ -288,28 +256,58 @@ def evaluate_model(
         if dataset_path is None:
             file_logger.write_and_print("Error: Failed to compute BLEU scores.")
             raise Exception("Failed to compute BLEU scores.")
-        
-        success, generated_code_dir = extract_generated_code(dataset_path, output_prefix)
+
+        success, generated_code_dir = extract_generated_code(
+            dataset_path, output_prefix
+        )
         if not success or not generated_code_dir:
             file_logger.write_and_print("Error: Failed to extract generated code.")
             raise Exception("Failed to extract generated code.")
-        
+
         # Instead of saving to file and reloading, process directly:
         mapped_dataset = convert_pairs_to_json(generated_code_dir)
         if not mapped_dataset:
-            file_logger.write_and_print("Error: Failed to map generated code to dataset format.")
+            file_logger.write_and_print(
+                "Error: Failed to map generated code to dataset format."
+            )
             raise Exception("Failed to map generated code to dataset format.")
-        
+
         # Convert mapped_dataset (string) to Python object
         data_for_checker = json.loads(mapped_dataset)
 
         print("Processing dataset inline...")
         client = BuildCheckerClient()
-        work_sampl, tot_sampl = client.process_dataset_inline_content(data_for_checker, run=True)
+        work_sampl, tot_sampl = client.process_dataset_inline_content(
+            data_for_checker, run=True
+        )
         file_logger.write_and_print(f"\nRunning examples: {work_sampl}/{tot_sampl}\n")
-        
+
     except Exception as e:
         print(f"An error occurred during evaluation: {e}")
         raise e
 
     return dataset_path, avg_bleu, (work_sampl, tot_sampl)
+
+
+def main():
+    # Dummy variables for testing
+    model = None  # Replace with actual model
+    tokenizer = None  # Replace with actual tokenizer
+    test_dataset_path = "path/to/test_dataset.json"  # Replace with actual path
+    train_size = 1000  # Replace with actual training size
+    output_prefix = "test"
+
+    try:
+        # Call the evaluate_model function to test imports and functionality
+        dataset_path, avg_bleu, (work_sampl, tot_sampl) = evaluate_model(
+            model, tokenizer, test_dataset_path, train_size, output_prefix
+        )
+        print(f"Dataset path: {dataset_path}")
+        print(f"Average BLEU score: {avg_bleu}")
+        print(f"Successful runs: {work_sampl}/{tot_sampl}")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+
+if __name__ == "__main__":
+    main()
