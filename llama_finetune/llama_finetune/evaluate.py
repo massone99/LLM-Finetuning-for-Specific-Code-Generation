@@ -1,19 +1,19 @@
 from datetime import datetime
 import json
 import os
-import re
 import sys
 from typing import Tuple, List, Dict, Any
 
 import nltk
 import pandas as pd
 from datasets import load_dataset
-from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
-from unsloth import FastLanguageModel
-from unsloth.chat_templates import get_chat_template
-
-from build_client import BuildCheckerClient
+from evaluation_utils.build_client import BuildCheckerClient
 from logger import file_logger
+
+# Import the classes from their new files
+from evaluation_utils.code_generator import CodeGenerator
+from evaluation_utils.metrics_calculator import MetricsCalculator
+from evaluation_utils.data_processor import DataProcessor
 
 # Constants
 RESULTS_DIR = "../res/data/results"
@@ -27,122 +27,6 @@ from retrieve_model_output import process_evaluation_results
 
 nltk.download("punkt")
 nltk.download("punkt_tab")
-
-
-class CodeGenerator:
-    @staticmethod
-    def generate_code(
-        model: Any,
-        tokenizer: Any,
-        prompts: List[str],
-        max_new_tokens: int = 512,
-        temperature: float = 1.5,
-        min_p: float = 0.1,
-    ) -> List[str]:
-        """Generate code outputs for a list of prompts."""
-        FastLanguageModel.for_inference(model)
-        generated_codes = []
-
-        for prompt in prompts:
-            messages = [{"role": "user", "content": prompt}]
-            inputs = tokenizer.apply_chat_template(
-                messages, tokenize=True, add_generation_prompt=True, return_tensors="pt"
-            ).to("cuda")
-
-            outputs = model.generate(
-                input_ids=inputs,
-                max_new_tokens=max_new_tokens,
-                use_cache=True,
-                temperature=temperature,
-                min_p=min_p,
-            )
-            generated_code = tokenizer.batch_decode(outputs, skip_special_tokens=True)[
-                0
-            ]
-            generated_codes.append(generated_code)
-
-        return generated_codes
-
-
-class MetricsCalculator:
-    @staticmethod
-    def compute_bleu(reference: str, candidate: str) -> float:
-        """Compute BLEU score between reference and candidate code."""
-        reference_tokens = nltk.word_tokenize(reference)
-        candidate_tokens = nltk.word_tokenize(candidate)
-        smoothie = SmoothingFunction().method4
-        return sentence_bleu(
-            [reference_tokens], candidate_tokens, smoothing_function=smoothie
-        )
-
-    @staticmethod
-    def calculate_metrics(
-        references: List[str], generated_codes: List[str]
-    ) -> Tuple[List[Dict], float]:
-        """Calculate BLEU scores for each pair and average."""
-        results = []
-        bleu_scores = []
-
-        for ref, gen in zip(references, generated_codes):
-            bleu = MetricsCalculator.compute_bleu(ref, gen)
-            bleu_scores.append(bleu)
-            results.append({"reference": ref, "generated": gen, "bleu": bleu})
-
-        avg_bleu = sum(bleu_scores) / len(bleu_scores) if bleu_scores else 0
-        return results, avg_bleu
-
-
-class DataProcessor:
-    @staticmethod
-    def extract_conversations(convo_list: List[Dict]) -> pd.Series:
-        """Extract human and assistant messages from conversation list."""
-        try:
-            human_msg = convo_list[0]["value"]
-            assistant_msg = convo_list[1]["value"]
-            return pd.Series({"prompt": human_msg, "reference": assistant_msg})
-        except (IndexError, KeyError, TypeError) as e:
-            print(f"Error extracting conversations: {e}")
-            return pd.Series({"prompt": None, "reference": None})
-
-    @staticmethod
-    def convert_pairs_to_json(folder_path: str) -> str:
-        """Convert prompt-code pairs to JSON format."""
-        file_pattern = re.compile(r"^(prompt|code)_(\d+)\.txt$")
-        prompts = {}
-        codes = {}
-
-        for file_name in os.listdir(folder_path):
-            match = file_pattern.match(file_name)
-            if match:
-                file_type, idx = match.group(1), match.group(2)
-                with open(
-                    os.path.join(folder_path, file_name), "r", encoding="utf-8"
-                ) as f:
-                    content = f.read().strip()
-
-                if file_type == "prompt":
-                    prompts[idx] = content
-                else:
-                    codes[idx] = content
-
-        result = []
-        all_indices = sorted(set(prompts.keys()).union(codes.keys()), key=int)
-
-        for idx in all_indices:
-            prompt_text = prompts.get(idx, "")
-            code_text = codes.get(idx, "")
-            if prompt_text or code_text:
-                result.append(
-                    {
-                        "conversations": [
-                            {"from": "human", "value": prompt_text},
-                            {"from": "assistant", "value": code_text},
-                        ]
-                    }
-                )
-
-        return json.dumps(result, indent=2)
-
 
 def compute_bleu_for_model(
     model, tokenizer, test_dataset_path, train_size, output_prefix="baseline"
