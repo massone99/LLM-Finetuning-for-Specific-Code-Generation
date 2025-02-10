@@ -9,6 +9,8 @@ readme = "README.md"
 python = "^3.12"
 requests = "^2.32.3"
 pytest = "^8.3.4"
+nltk = "^3.9.1"
+pandas = "^2.2.3"
 
 
 [build-system]

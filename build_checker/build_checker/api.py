@@ -8,11 +8,15 @@ from log.logger import logger
 class BuildCheckerAPI:
     def __init__(self):
         self.current_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        self.output_directory = "res/akka_placeholder"
+        root_path = os.path.dirname(self.current_dir)
+        self.output_directory = root_path + "/build_checker" + "/res/akka_placeholder"
         self.scala_proj_dir = self.current_dir + "/res/akka_placeholder"
         self.hash_file_path = "res/config/processed_hashes.json"
-        self.failing_snippets_path = "res/config/failing_snippets.json"
-        self.main_scala_path = os.path.join(self.output_directory, "src/main/scala/Main.scala")
+        root_path = Path(self.current_dir).parent
+        build_checker_path = root_path / "build_checker"
+        akka_project_path = build_checker_path / "res/akka_placeholder"
+        self.failing_snippets_path = build_checker_path / "res/config/failing_snippets.json"
+        self.main_scala_path = os.path.join(akka_project_path, "src/main/scala/Main.scala")
 
     def load_json_dataset(self, json_file_path) -> dict:
         if not os.path.exists(json_file_path):
@@ -68,7 +72,8 @@ class BuildCheckerAPI:
         if not code.strip():
             return False, "No code provided"
 
-        logger.info(f"Processing snippet: {code[:50]}...")
+        # logger.info(f"Processing snippet: {code[:50]}...")
+        logger.info(f"\nProcessing snippet:\n {code} \n")
 
         with open(self.main_scala_path, "w") as f:
             f.write(code)

@@ -1,50 +1,51 @@
-import akka.actor.{Actor, ActorRef, ActorSystem, OneForOneStrategy, Props, SupervisorStrategy, Terminated}
-import akka.actor.SupervisorStrategy._
-import scala.concurrent.duration._
+// Message types defined
+case object EchoMessage extends Message
 
-// Define the FaultyChildActor
-class FaultyChildActor extends Actor {
-  def receive: Receive = {
-    case "causeNull" =>
-      println(s"${self.path.name} received 'causeNull' and will throw NullPointerException.")
-      throw new NullPointerException("Simulated NullPointerException.")
-    case msg =>
-      println(s"${self.path.name} received message: $msg")
+// Actor implementation
+class EchoActor extends Actor {
+  override def receive: Receive = {
+    case msg @ _ => sender().tell(msg)
   }
 }
 
-// Define the EscalatingSupervisor Actor
-class EscalatingSupervisor extends Actor {
-  override val supervisorStrategy: SupervisorStrategy = OneForOneStrategy(
-    maxNrOfRetries = 3,
-    withinTimeRange = 1.minute
-  ) {
-    case _: NullPointerException =>
-      println("EscalatingSupervisor encountered a NullPointerException. Escaling failure.")
-      SupervisorStrategy.Escalate
+// System integration
+import akka.actor.ActorSystem
+object EchoExample {
+  def main(args: Array[String]) {
+    implicit val system = ActorSystem("echo-system")
+
+    val echoActor = systemactorOf[EchoActor]()
+
+    // Setup test message
+    val msg = EchoMessage
+
+    // Send test message and expect response
+    val responseFuture = Future {
+      val receivedMsg = receiveMsg(msg)
+      println(s"Received: $receivedMsg")
+      receivedMsg
+    }
+    respondWith(responseFuture)
+
   }
 
-  // Create the child actor
-  val child: ActorRef = context.actorOf(Props[FaultyChildActor](), "childActor")
-
-  def receive: Receive = {
-    case msg =>
-      child.forward(msg)
+  def respondWith[F](future: Future[F])(implicit system: ActorSystem): Unit = {
+    val futureRef = system.actorRef("response-future", classOf[ResponseFuture])
+    future.map { result =>
+      system.actorSelection(futureRef.path).tell(result)
+    }
   }
 }
 
-// Usage Example (for testing purposes)
-object EscalatingSupervisorApp extends App {
-  val system = ActorSystem("EscalatingSupervisorSystem")
-  val supervisor = system.actorOf(Props[EscalatingSupervisor](), "supervisor")
+// Response future actor
+import akka.actor.Typed
+import akka.actor.typed.{Behavior, PostStop}
+import akka.actor.typed.scaladsl.Behaviors
 
-  // Send messages to the child actor
-  supervisor! "causeNull"   // Should throw NullPointerException
-  supervisor! "Hello"     // Should pass without error
-  supervisor! "causeNull"   // Should throw NullPointerException again
-  supervisor! "Goodbye"     // Should pass without error
+class ResponseFuture extends Actor[Typed.EventMessage[String]] {
+  override def onEvent(msg: String): Behavior = Behaviors.same
 
-  // Allow some time for processing before shutdown
-  Thread.sleep(2000)
-  system.terminate()
+  override def onPostStop(): Unit = {
+    println(s"Response future actor stopped")
+  }
 }
