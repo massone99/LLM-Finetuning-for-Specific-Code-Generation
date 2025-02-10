@@ -114,7 +114,8 @@ class BuildCheckerAPI:
             logger.info("Successfully ran snippet")
             return True, result.stdout
         except subprocess.CalledProcessError as e:
-            error_msg = e.stderr
+            # Include both stderr and stdout in error output for better debugging
+            error_msg = f"STDOUT:\n{e.stdout}\nSTDERR:\n{e.stderr}"
             logger.error(f"Run error: {error_msg}")
             return False, error_msg
         except FileNotFoundError:
@@ -151,7 +152,7 @@ class BuildCheckerAPI:
                 run_status, run_output = self.run_project()
                 if not run_status:
                     logger.error("Code causing error!")
-                    logger.error(f"Run output: {run_output}")
+                    logger.error(f"Run output: \n{run_output}")
                 else:
                     running_examples += 1
         logger.debug(f"Running examples: {running_examples}/{len(results)}")

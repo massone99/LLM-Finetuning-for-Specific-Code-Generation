@@ -19,10 +19,12 @@ hash_file_path = "res/config/processed_hashes.json"
 current_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 scala_proj_dir = current_dir + "/res/akka_placeholder"
 
-output_directory = "res/akka_placeholder"
+project_dir = str(ROOT_DIR) + "/build_checker"
+
+output_directory =  project_dir + "/res/akka_placeholder"
 # Define the path to the Main.scala file
 main_scala_path = os.path.join(output_directory, "src/main/scala/Main.scala")
-failing_snippets_path = "res/config/failing_snippets.json"
+failing_snippets_path =  project_dir + "/res/config/failing_snippets.json"
 
 def load_processed_hashes(hash_file_path):
     if os.path.exists(hash_file_path):
@@ -136,7 +138,6 @@ def process_snippets(dataset, build_flag, run_flag, use_hashes=False):
                     logger.error(
                         "Error running project. Prompt and code returning error:\n"
                     )
-                    logger.error(f"Idx conversation: {idx}")
                     logger.error(f"Prompt: {human_prompt}")
                     logger.error(f"Run output: {run_output}")
                     logger.error(f"Error cause: {error_cause}")
@@ -186,8 +187,8 @@ def run_project(project_directory) -> tuple:
         )
         return True, result.stdout
     except subprocess.CalledProcessError as e:
-        # Extract error details from stderr
-        error_output = e.stderr
+        # Include both stderr and stdout in error output for better debugging
+        error_output = f"STDOUT:\n{e.stdout}\nSTDERR:\n{e.stderr}"
         return False, error_output
     except FileNotFoundError:
         logger.error("sbt not found. Please ensure sbt is installed and in your PATH")
@@ -419,6 +420,7 @@ class DatasetProcessorGUI(QMainWindow):
                     self.status_label.setText("Processing completed successfully!")
                 except Exception as e:
                     self.status_label.setText(f"Error during processing: {str(e)}")
+                    raise e
             else:
                 self.status_label.setText("Error loading dataset")
 

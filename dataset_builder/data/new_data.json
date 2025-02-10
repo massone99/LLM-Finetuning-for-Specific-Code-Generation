@@ -1,0 +1,63 @@
+[
+    {
+      "conversations": [
+        {
+          "from": "human",
+          "value": "Implement an Akka Typed actor in Scala that simulates a worker which occasionally fails. Use a backoff supervision strategy to automatically restart the worker with an exponential backoff delay. Demonstrate sending messages to the worker actor and observe how it recovers from failures."
+        },
+        {
+          "from": "assistant",
+          "value": "import akka.actor.typed.{ActorRef, ActorSystem, Behavior, SupervisorStrategy}\nimport akka.actor.typed.scaladsl.Behaviors\nimport scala.util.Random\nimport scala.concurrent.duration._\n\nobject FlakyWorker {\n  // Protocol for the FlakyWorker\n  sealed trait Command\n  final case class DoWork(replyTo: ActorRef[String]) extends Command\n  case object Fail extends Command\n\n  def apply(): Behavior[Command] = Behaviors.receive { (context, message) =>\n    message match {\n      case DoWork(replyTo) =>\n        // Simulate random success or failure\n        if (Random.nextBoolean()) {\n          context.log.info(\"FlakyWorker: Work succeeded\")\n          replyTo ! \"Work completed successfully\"\n          Behaviors.same\n        } else {\n          context.log.info(\"FlakyWorker: Work failed, throwing exception\")\n          throw new RuntimeException(\"Simulated failure\")\n        }\n      case Fail =>\n        context.log.info(\"FlakyWorker: Received Fail command, throwing exception\")\n        throw new RuntimeException(\"Forced failure\")\n    }\n  }\n}\n\nobject WorkerSupervisor {\n  def apply(): Behavior[FlakyWorker.Command] = {\n    // Supervise the FlakyWorker using exponential backoff on failure\n    Behaviors.supervise(FlakyWorker())\n      .onFailure[RuntimeException](SupervisorStrategy.restartWithBackoff(1.second, 10.seconds, 0.2))\n  }\n}\n\nobject WorkerApp extends App {\n  // Initialize the actor system with the supervised behavior\n  val system: ActorSystem[FlakyWorker.Command] = ActorSystem(WorkerSupervisor(), \"WorkerSystem\")\n\n  // Create a simple reply actor to receive responses\n  val replyActor: ActorRef[String] = system.systemActorOf(\n    Behaviors.receiveMessage[String] { msg =>\n      println(s\"Reply received: $msg\")\n      Behaviors.same\n    }, \"replyActor\"\n  )\n\n  // Send a work request\n  system ! FlakyWorker.DoWork(replyActor)\n  \n  // Force a failure\n  system ! FlakyWorker.Fail\n\n  // Schedule another work request after 5 seconds\n  import system.executionContext\n  system.scheduler.scheduleOnce(5.seconds) {\n    system ! FlakyWorker.DoWork(replyActor)\n  }\n\n  Thread.sleep(15000)\n  system.terminate()\n}"
+        }
+      ]
+    },
+    {
+      "conversations": [
+        {
+          "from": "human",
+          "value": "Develop an Akka Persistence Typed actor in Scala that logs messages persistently. The actor should handle LogMessage and GetHistory commands, persisting each message. Upon receiving GetHistory, it should reply with all stored messages. Demonstrate persisting a few messages and retrieving the history."
+        },
+        {
+          "from": "assistant",
+          "value": "import akka.actor.typed.ActorRef\nimport akka.actor.typed.ActorSystem\nimport akka.actor.typed.Behavior\nimport akka.persistence.typed.PersistenceId\nimport akka.persistence.typed.scaladsl.{Effect, EventSourcedBehavior}\nimport akka.actor.typed.scaladsl.Behaviors\nimport scala.concurrent.duration._\n\nobject LoggerPersistentActor {\n  // Commands\n  sealed trait Command\n  final case class LogMessage(message: String, replyTo: ActorRef[Ack]) extends Command\n  final case class GetHistory(replyTo: ActorRef[History]) extends Command\n\n  sealed trait Ack\n  case object Logged extends Ack\n\n  // Events\n  sealed trait Event\n  final case class MessageLogged(message: String) extends Event\n\n  // State\n  final case class State(messages: List[String] = Nil) {\n    def updated(event: Event): State = event match {\n      case MessageLogged(msg) => messages :+ msg\n    }\n  }\n\n  final case class History(messages: List[String])\n\n  def apply(entityId: String): Behavior[Command] =\n    EventSourcedBehavior[Command, Event, State](\n      persistenceId = PersistenceId.ofUniqueId(entityId),\n      emptyState = State(),\n      commandHandler = (state, command) => command match {\n        case LogMessage(message, replyTo) =>\n          Effect.persist(MessageLogged(message)).thenRun { _ =>\n            replyTo ! Logged\n          }\n        case GetHistory(replyTo) =>\n          replyTo ! History(state.messages)\n          Effect.none\n      },\n      eventHandler = (state, event) => state.updated(event)\n    )\n}\n\nobject LoggerPersistentApp extends App {\n  val system: ActorSystem[LoggerPersistentActor.Command] =\n    ActorSystem(LoggerPersistentActor(\"logger-1\"), \"PersistentLoggerSystem\")\n\n  // Create an ack receiver actor\n  val ackReceiver: ActorRef[LoggerPersistentActor.Ack] =\n    system.systemActorOf(\n      Behaviors.receiveMessage[LoggerPersistentActor.Ack] { ack =>\n        println(\"Ack received\")\n        Behaviors.same\n      },\n      \"ackReceiver\"\n    )\n\n  // Create a history receiver actor\n  val historyReceiver: ActorRef[LoggerPersistentActor.History] =\n    system.systemActorOf(\n      Behaviors.receiveMessage[LoggerPersistentActor.History] { history =>\n        println(s\"History: ${history.messages.mkString(\", \")}\")\n        Behaviors.same\n      },\n      \"historyReceiver\"\n    )\n\n  // Send log messages\n  system ! LoggerPersistentActor.LogMessage(\"First log message\", ackReceiver)\n  system ! LoggerPersistentActor.LogMessage(\"Second log message\", ackReceiver)\n\n  // Request history after a delay\n  import system.executionContext\n  system.scheduler.scheduleOnce(3.seconds) {\n    system ! LoggerPersistentActor.GetHistory(historyReceiver)\n  }\n\n  Thread.sleep(5000)\n  system.terminate()\n}"
+        }
+      ]
+    },
+    {
+      "conversations": [
+        {
+          "from": "human",
+          "value": "Create an Akka Actor in Scala named TrafficLightActor that cycles between Red, Green, and Yellow states with timed transitions. Use context.become to manage state transitions and log the current state to the console."
+        },
+        {
+          "from": "assistant",
+          "value": "import akka.actor.{Actor, ActorSystem, Props}\nimport scala.concurrent.duration._\n\nobject TrafficLightActor {\n  case object Change\n}\n\nclass TrafficLightActor extends Actor {\n  import TrafficLightActor._\n  import context.dispatcher\n\n  def red: Receive = {\n    case Change =>\n      println(\"Transitioning from RED to GREEN\")\n      context.become(green)\n      context.system.scheduler.scheduleOnce(5.seconds, self, Change)\n  }\n\n  def green: Receive = {\n    case Change =>\n      println(\"Transitioning from GREEN to YELLOW\")\n      context.become(yellow)\n      context.system.scheduler.scheduleOnce(2.seconds, self, Change)\n  }\n\n  def yellow: Receive = {\n    case Change =>\n      println(\"Transitioning from YELLOW to RED\")\n      context.become(red)\n      context.system.scheduler.scheduleOnce(3.seconds, self, Change)\n  }\n\n  override def preStart(): Unit = {\n    println(\"Starting Traffic Light in RED state\")\n    context.system.scheduler.scheduleOnce(3.seconds, self, Change)\n  }\n\n  def receive: Receive = red\n}\n\nobject TrafficLightApp extends App {\n  val system = ActorSystem(\"TrafficLightSystem\")\n  val trafficLight = system.actorOf(Props[TrafficLightActor](), \"trafficLight\")\n  Thread.sleep(20000)\n  system.terminate()\n}"
+        }
+      ]
+    },
+    {
+      "conversations": [
+        {
+          "from": "human",
+          "value": "Design an Akka Cluster Singleton in Scala using Akka Typed. The singleton actor should manage configuration updates by handling UpdateConfig and GetConfig commands. Provide code that initializes the cluster system and spawns the singleton actor."
+        },
+        {
+          "from": "assistant",
+          "value": "import akka.actor.typed.{ActorSystem, Behavior}\nimport akka.actor.typed.scaladsl.Behaviors\nimport akka.cluster.typed.{ClusterSingleton, SingletonActor}\nimport com.typesafe.config.ConfigFactory\n\nobject ConfigManager {\n  sealed trait Command\n  final case class UpdateConfig(config: String) extends Command\n  case object GetConfig extends Command\n\n  def apply(): Behavior[Command] = Behaviors.receive { (context, message) =>\n    message match {\n      case UpdateConfig(config) =>\n        context.log.info(s\"Config updated to: $config\")\n        Behaviors.same\n      case GetConfig =>\n        context.log.info(\"Returning current config\")\n        Behaviors.same\n    }\n  }\n}\n\nobject ClusterSingletonApp extends App {\n  val config = ConfigFactory.load()\n  val system: ActorSystem[Nothing] = ActorSystem(Behaviors.empty, \"ClusterSystem\", config)\n\n  val singletonManager = ClusterSingleton(system)\n  val configManagerProxy = singletonManager.init(\n    SingletonActor(\n      Behaviors.supervise(ConfigManager()).onFailure[Exception](\n        akka.actor.typed.SupervisorStrategy.restart\n      ),\n      \"ConfigManager\"\n    )\n  )\n\n  // Interact with the singleton\n  configManagerProxy ! ConfigManager.UpdateConfig(\"NewConfigValue\")\n\n  Thread.sleep(5000)\n  system.terminate()\n}"
+        }
+      ]
+    },
+    {
+      "conversations": [
+        {
+          "from": "human",
+          "value": "Implement an Akka Actor in Scala named StreamProcessingActor that integrates with Akka Streams. The actor should materialize a stream of numbers from 1 to 10 and print each number to the console when it receives a \"start\" message."
+        },
+        {
+          "from": "assistant",
+          "value": "import akka.actor.{Actor, ActorSystem, Props}\nimport akka.stream.ActorMaterializer\nimport akka.stream.scaladsl.{Source, Sink}\n\nclass StreamProcessingActor extends Actor {\n  implicit val materializer: ActorMaterializer = ActorMaterializer()(context.system)\n  def receive: Receive = {\n    case \"start\" =>\n      Source(1 to 10).runWith(Sink.foreach(n => println(s\"StreamProcessingActor received: $n\")))\n  }\n}\n\nobject StreamProcessingApp extends App {\n  val system = ActorSystem(\"StreamProcessingSystem\")\n  val streamActor = system.actorOf(Props[StreamProcessingActor](), \"streamActor\")\n  streamActor ! \"start\"\n  Thread.sleep(1000)\n  system.terminate()\n}"
+        }
+      ]
+    }
+  ]
+  
