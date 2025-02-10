@@ -278,7 +278,7 @@ def main():
         train_dataset_size = None
 
     if args.load_model:
-        model, output_prefix, results_file = process_loaded_model(args, model, output_dir, tokenizer, train_dataset_size)
+        process_loaded_model(args, model, output_dir, tokenizer, train_dataset_size)
     else:
         process_trained_model(args, max_seq_length, model, output_dir, tokenizer, train_dataset_size)
 
