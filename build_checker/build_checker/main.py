@@ -83,7 +83,7 @@ def save_failing_snippets(failing_snippets, failing_snippets_path):
         json.dump(failing_snippets, f, indent=4)
     logger.info(f"Saved {len(failing_snippets)} failing snippets.")
 
-def process_snippets(dataset, build_flag, run_flag, use_hashes=False):
+def process_snippets(dataset, build_flag, run_flag, use_hashes=False, on_working_snippet=None):
     """Process code snippets with optional hash checking.
     
     Args:
@@ -91,6 +91,7 @@ def process_snippets(dataset, build_flag, run_flag, use_hashes=False):
         build_flag (bool): Whether to build the project
         run_flag (bool): Whether to run the project
         use_hashes (bool): Whether to use hash checking to skip processed items
+        on_working_snippet (callable): Optional callback for working snippets
     """
     if dataset is None:
         logger.error("No dataset file provided. Stopping further processing.")
@@ -130,14 +131,14 @@ def process_snippets(dataset, build_flag, run_flag, use_hashes=False):
                 if run_status:
                     logger.info(f"Run successful for conversation idx: {idx}")
                     successful_runs += 1
+                    if on_working_snippet:
+                        on_working_snippet(idx, human_prompt, code)
                 else:
                     # Extract error cause from run output
                     error_lines = run_output.strip().split('\n')
                     error_cause = error_lines[-1] if error_lines else "Unknown error"
                     
-                    logger.error(
-                        "Error running project. Prompt and code returning error:\n"
-                    )
+                    logger.error(f"Run failed for idx: {idx}")
                     logger.error(f"Prompt: {human_prompt}")
                     logger.error(f"Run output: {run_output}")
                     logger.error(f"Error cause: {error_cause}")
@@ -355,6 +356,20 @@ class DatasetProcessorGUI(QMainWindow):
         self.hash_checkbox = QCheckBox("Use Processed Hashes")
         self.hash_checkbox.setChecked(False)
 
+        # Add append checkbox
+        self.append_checkbox = QCheckBox("Append working snippets to main dataset")
+        self.append_checkbox.setChecked(False)
+        self.append_checkbox.stateChanged.connect(self.handle_append_state)
+
+        # Add dataset path label
+        self.main_dataset_label = QLabel("Main dataset: Not selected")
+        self.main_dataset_label.setVisible(False)
+
+        # Add select main dataset button
+        self.select_main_dataset_button = QPushButton("Select Main Dataset")
+        self.select_main_dataset_button.clicked.connect(self.select_main_dataset)
+        self.select_main_dataset_button.setVisible(False)
+
         # Process button
         self.process_button = QPushButton("Process Dataset")
         self.process_button.clicked.connect(self.process_dataset)
@@ -369,10 +384,14 @@ class DatasetProcessorGUI(QMainWindow):
         layout.addWidget(self.build_checkbox)
         layout.addWidget(self.run_checkbox)
         layout.addWidget(self.hash_checkbox)
+        layout.addWidget(self.append_checkbox)
+        layout.addWidget(self.main_dataset_label)
+        layout.addWidget(self.select_main_dataset_button)
         layout.addWidget(self.process_button)
         layout.addWidget(self.status_label)
 
         self.selected_file = None
+        self.main_dataset_path = None
         
         # Add test snippet button
         self.test_button = QPushButton("Test Snippet")
@@ -390,6 +409,13 @@ class DatasetProcessorGUI(QMainWindow):
             self.test_window = TestSnippetWindow()
         self.test_window.show()
 
+    def handle_append_state(self, state):
+        self.main_dataset_label.setVisible(state)
+        self.select_main_dataset_button.setVisible(state)
+        if not state:
+            self.main_dataset_path = None
+            self.main_dataset_label.setText("Main dataset: Not selected")
+
     def select_file(self):
         file_path, _ = QFileDialog.getOpenFileName(
             self,
@@ -403,6 +429,25 @@ class DatasetProcessorGUI(QMainWindow):
             self.process_button.setEnabled(True)
             self.hash_checkbox.setEnabled(True)
 
+    def select_main_dataset(self):
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Select Main Dataset File",
+            str(ROOT_DIR),
+            "JSON Files (*.json);;All Files (*.*)"
+        )
+        if file_path:
+            self.main_dataset_path = file_path
+            self.main_dataset_label.setText(f"Main dataset: {os.path.basename(file_path)}")
+
+    def is_duplicate_snippet(self, prompt: str, code: str, main_dataset: list) -> bool:
+        """Check if either prompt or code already exists in the main dataset"""
+        for entry in main_dataset:
+            for conversation in entry.get("conversations", []):
+                if conversation.get("value") in [prompt, code]:
+                    return True
+        return False
+
     def process_dataset(self):
         if self.selected_file:
             self.status_label.setText("Loading dataset...")
@@ -411,13 +456,47 @@ class DatasetProcessorGUI(QMainWindow):
             if dataset:
                 self.status_label.setText("Processing dataset...")
                 try:
+                    working_snippets = []
+                    
+                    # Load main dataset early if we need to check for duplicates
+                    main_dataset = None
+                    if self.append_checkbox.isChecked() and self.main_dataset_path:
+                        with open(self.main_dataset_path, 'r') as f:
+                            main_dataset = json.load(f)
+                    
+                    def append_snippet_to_main_dataset(idx, prompt, code):
+                        if main_dataset and not self.is_duplicate_snippet(prompt, code, main_dataset):
+                            logger.info(f"Appending working snippet n°{idx} to main dataset: {prompt[:10]}...")
+                            working_snippets.append({
+                                "conversations": [
+                                    {"from": "human", "value": prompt},
+                                    {"from": "assistant", "value": code}
+                                ]
+                            })
+                        else:
+                            logger.info(f"Skipping duplicate snippet n°{idx}")
+
                     process_snippets(
                         dataset,
                         build_flag=self.build_checkbox.isChecked(),
                         run_flag=self.run_checkbox.isChecked(),
-                        use_hashes=self.hash_checkbox.isChecked()
+                        use_hashes=self.hash_checkbox.isChecked(),
+                        on_working_snippet=append_snippet_to_main_dataset if self.append_checkbox.isChecked() else None
                     )
-                    self.status_label.setText("Processing completed successfully!")
+
+                    if self.append_checkbox.isChecked() and working_snippets and main_dataset:
+                        # Append working snippets
+                        main_dataset.extend(working_snippets)
+                        
+                        # Save updated dataset
+                        with open(self.main_dataset_path, 'w') as f:
+                            json.dump(main_dataset, f, indent=2)
+                        
+                        self.status_label.setText(
+                            f"Processing completed! Added {len(working_snippets)} new working snippets to main dataset"
+                        )
+                    else:
+                        self.status_label.setText("Processing completed successfully!")
                 except Exception as e:
                     self.status_label.setText(f"Error during processing: {str(e)}")
                     raise e

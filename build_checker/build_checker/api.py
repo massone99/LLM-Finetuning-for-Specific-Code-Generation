@@ -53,7 +53,7 @@ class BuildCheckerAPI:
         for idx, conversation in enumerate(dataset):
             assistant_msgs, human_prompts = self._get_prompt_and_code(conversation)
             for code, prompt in zip(assistant_msgs, human_prompts):
-                success, msg = self.test_single_snippet(code, build_flag, run_flag)
+                success, msg = self.test_single_snippet(code, build_flag, run_flag, idx=idx, prompt=prompt)
                 if success:
                     successful_runs += 1
                 else:
@@ -68,12 +68,11 @@ class BuildCheckerAPI:
         self._save_failing_snippets(failing_snippets)
         return successful_runs, total_snippets
 
-    def test_single_snippet(self, code: str, build=True, run=True) -> tuple[bool, str]:
+    def test_single_snippet(self, code: str, build=True, run=True, idx=None, prompt=None) -> tuple[bool, str]:
         if not code.strip():
             return False, "No code provided"
 
         logger.info(f"Processing snippet: {code[:10]}...")
-        # logger.info(f"\nProcessing snippet:\n {code} \n")
 
         with open(self.main_scala_path, "w") as f:
             f.write(code)
@@ -81,10 +80,17 @@ class BuildCheckerAPI:
         if build:
             build_success, build_msg = self.build_project()
             if not build_success:
+                if idx is not None and prompt is not None:
+                    logger.error(f"Build failed for idx: {idx}")
+                    logger.error(f"Prompt: {prompt}")
                 return False, f"Build failed: {build_msg}"
 
         if run:
-            return self.run_project()
+            success, msg = self.run_project()
+            if not success and idx is not None and prompt is not None:
+                logger.error(f"Run failed for idx: {idx}")
+                logger.error(f"Prompt: {prompt}")
+            return success, msg
 
         return True, "Code written successfully"
 
