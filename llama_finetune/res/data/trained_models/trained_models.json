@@ -1,0 +1,35 @@
+[
+  {
+    "model_hash": "5a16d7fe271460383c675d0b03c3e1809a29becb3a5376b4d5f8497df85ec8f4",
+    "timestamp": "2025-02-10T12:29:14.188625",
+    "batch_size": 4,
+    "gradient_accumulation_steps": 4,
+    "learning_rate": 0.0002,
+    "num_train_epochs": 5,
+    "max_steps": 60,
+    "warmup_steps": 5,
+    "optimizer": "adamw_8bit",
+    "weight_decay": 0.01,
+    "lr_scheduler": "linear",
+    "lora_rank": 64,
+    "lora_alpha": 512,
+    "lora_dropout": 0,
+    "target_modules": [
+      "q_proj",
+      "k_proj",
+      "v_proj",
+      "o_proj",
+      "gate_proj",
+      "up_proj",
+      "down_proj"
+    ],
+    "use_gradient_checkpointing": "unsloth",
+    "train_dataset_size": 45,
+    "test_dataset_size": 17,
+    "avg_bleu": 0.3836559787978527,
+    "execution_check": {
+      "successful_runs": 7,
+      "total_snippets": 34
+    }
+  }
+]
