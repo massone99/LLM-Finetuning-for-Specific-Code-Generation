@@ -74,13 +74,13 @@ async def process_dataset_inline(dataset: InlineDataset):
             dataset.use_hashes
         )
 
-        print(f"Processed {successful_runs}/{len(snippets)} snippets successfully")
+        print(f"Processed {successful_runs}/{total_snippets} snippets successfully")
 
         return ProcessResponse(
             successful_runs=successful_runs,
-            total_snippets=len(snippets),
+            total_snippets=total_snippets,
             completed=True,
-            message=f"Processed {successful_runs}/{len(snippets)} snippets successfully"
+            message=f"Processed {successful_runs}/{total_snippets} snippets successfully"
         )
     except Exception as e:
         raise e

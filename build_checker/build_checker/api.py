@@ -72,8 +72,8 @@ class BuildCheckerAPI:
         if not code.strip():
             return False, "No code provided"
 
-        # logger.info(f"Processing snippet: {code[:50]}...")
-        logger.info(f"\nProcessing snippet:\n {code} \n")
+        logger.info(f"Processing snippet: {code[:10]}...")
+        # logger.info(f"\nProcessing snippet:\n {code} \n")
 
         with open(self.main_scala_path, "w") as f:
             f.write(code)
