@@ -245,7 +245,13 @@ def process_trained_model(args, max_seq_length, model, output_dir, tokenizer, tr
 #   poetry run python src/train.py --load-model ./res/outputs/finetuned_model
 def main():
 
-    #  TODO: ADD ASSERT ABOUT THE CURRENT WORK DIRECTORY: THE SCRIPT SHOULD BE EXECUTED INSIDE llama_finetune/llama_finetune
+    current_dir = os.path.basename(os.getcwd())
+    assert current_dir == "llama_finetune", "This script must be run from inside the llama_finetune/llama_finetune directory"
+    parent_dir = os.path.basename(os.path.dirname(os.getcwd()))
+    assert parent_dir == "llama_finetune", "This script must be run from inside the llama_finetune/llama_finetune directory"
+    
+    print("Current working directory: CORRECT")
+    
     # Parse command line arguments
 
     args = parse_args()
