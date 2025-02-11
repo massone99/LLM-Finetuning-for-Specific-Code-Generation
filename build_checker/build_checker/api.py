@@ -52,8 +52,26 @@ class BuildCheckerAPI:
 
         for idx, conversation in enumerate(dataset):
             assistant_msgs, human_prompts = self._get_prompt_and_code(conversation)
-            for code, prompt in zip(assistant_msgs, human_prompts):
-                success, msg = self.test_single_snippet(code, build_flag, run_flag, idx=idx, prompt=prompt)
+            is_multi_snippet = len(assistant_msgs) > 1
+            
+            if is_multi_snippet:
+                logger.info(f"\nProcessing multi-snippet conversation {idx} ({len(assistant_msgs)} snippets)")
+            else:
+                logger.info(f"\nProcessing single-snippet conversation {idx}")
+            
+            for snippet_idx, (code, prompt) in enumerate(zip(assistant_msgs, human_prompts)):
+                if is_multi_snippet:
+                    logger.info(f"Testing snippet {snippet_idx + 1}/{len(assistant_msgs)}")
+                    logger.info(f"Context up to this point:\n{prompt}")
+                
+                success, msg = self.test_single_snippet(
+                    code, 
+                    build_flag, 
+                    run_flag, 
+                    idx=idx,
+                    prompt=prompt,
+                    snippet_idx=snippet_idx if is_multi_snippet else None
+                )
                 if success:
                     successful_runs += 1
                 else:
@@ -68,30 +86,42 @@ class BuildCheckerAPI:
         self._save_failing_snippets(failing_snippets)
         return successful_runs, total_snippets
 
-    def test_single_snippet(self, code: str, build=True, run=True, idx=None, prompt=None) -> tuple[bool, str]:
+    def test_single_snippet(self, code: str, build=True, run=True, idx=None, prompt=None, snippet_idx=None) -> tuple[bool, str]:
         if not code.strip():
             return False, "No code provided"
 
-        logger.info(f"Processing snippet: {code[:10]}...")
+        if snippet_idx is not None:
+            snippet_info = f"conversation {idx}, snippet {snippet_idx + 1}"
+        else:
+            snippet_info = f"conversation {idx}"
+        
+        logger.info(f"Testing {snippet_info}...")
+        
+        # Log only first 100 chars if single snippet, otherwise log the differential prompt
+        if snippet_idx is None:
+            logger.info(f"Prompt: {prompt[:100]}...")
+        else:
+            # Get just the last human message from the conversation context
+            last_prompt = prompt.split("Human: ")[-1]
+            logger.info(f"Current prompt: {last_prompt}")
 
         with open(self.main_scala_path, "w") as f:
             f.write(code)
-            logger.info(f"Wrote code to {self.main_scala_path}")
+            logger.debug(f"Wrote code to {self.main_scala_path}")
 
         if build:
             build_success, build_msg = self.build_project()
             if not build_success:
-                if idx is not None and prompt is not None:
-                    logger.error(f"Build failed for idx: {idx}")
-                    logger.error(f"Prompt: {prompt}")
+                logger.error(f"Build failed for {snippet_info}")
                 return False, f"Build failed: {build_msg}"
 
         if run:
             success, msg = self.run_project()
-            if not success and idx is not None and prompt is not None:
-                logger.error(f"Run failed for idx: {idx}")
-                logger.error(f"Prompt: {prompt}")
+            if not success:
+                logger.error(f"Run failed for {snippet_info}")
                 logger.error(f"Run output: {msg}")
+            else:
+                logger.info(f"Successfully ran {snippet_info}")
             return success, msg
 
         return True, "Code written successfully"
@@ -177,9 +207,18 @@ class BuildCheckerAPI:
             json.dump(snippets, f, indent=2)
 
     def _get_prompt_and_code(self, conversation):
-        return (
-            [m["value"] for m in conversation.get("conversations",[])
-             if m.get("from")=="assistant"],
-            [m["value"] for m in conversation.get("conversations",[])
-             if m.get("from")=="human"]
-        )
+        """Get all prompts and responses from a conversation, combining previous context"""
+        messages = conversation.get("conversations", [])
+        prompts = []
+        codes = []
+        current_prompt = []
+        
+        for msg in messages:
+            if msg.get("from") == "human":
+                # Add human message to current context
+                current_prompt.append(f"Human: {msg['value']}")
+                prompts.append("\n".join(current_prompt))  # Always add the current context
+            elif msg.get("from") == "assistant":
+                codes.append(msg["value"])
+                
+        return codes, prompts

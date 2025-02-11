@@ -1,64 +1,52 @@
-import akka.actor.{Actor, ActorRef, ActorSystem, Props}
+import akka.actor.{Actor, ActorSystem, Props}
 
-// Message requesting a coordinated task
-case class CoordinatedTask(data: String)
-// Message representing partial result from a worker
-case class PartialResult(text: String)
-// Message with final aggregated result
-case class FinalResult(result: String)
+case object Toggle
+case object Reset
+case class Msg(content: String)
 
-// Worker that processes part of the data
-class WorkerActor(workerId: Int) extends Actor {
-  def receive: Receive = {
-    case CoordinatedTask(data) =>
-      val transformed = s"Worker-$workerId processed: $data"
-      println(transformed)
-      sender() ! PartialResult(transformed)
-    case _ => println(s"Worker-$workerId: Unknown message.")
+class ToggleActor extends Actor {
+  // Start in active state
+  def receive: Receive = active
+
+  def active: Receive = {
+    case Toggle =>
+      println("ToggleActor: Switching from active to inactive.")
+      context.become(inactive)
+    case Reset =>
+      println("ToggleActor: Already active, staying active.")
+      // Remain in the same active state
+    case Msg(content) =>
+      println(s"ToggleActor (active) got -> $content")
+    case _ =>
+      println("ToggleActor (active) received unknown message.")
+  }
+
+  def inactive: Receive = {
+    case Toggle =>
+      println("ToggleActor: Switching from inactive to active.")
+      context.become(active)
+    case Reset =>
+      println("ToggleActor: Reset invoked, going to active.")
+      context.become(active)
+    case Msg(content) =>
+      println(s"ToggleActor (inactive) got -> $content")
+    case _ =>
+      println("ToggleActor (inactive) received unknown message.")
   }
 }
 
-// Manager that coordinates two workers and aggregates their results
-class ManagerActor(worker1: ActorRef, worker2: ActorRef) extends Actor {
-  private var resultCount = 0
-  private var partials: List[String] = Nil
-  private var originalSender: Option[ActorRef] = None
+object ToggleApp extends App {
+  val system = ActorSystem("ToggleSystem")
+  val toggler = system.actorOf(Props[ToggleActor](), "toggleActor")
 
-  def receive: Receive = {
-    case CoordinatedTask(data) =>
-      // Reset state for new request
-      resultCount = 0
-      partials = Nil
-      originalSender = Some(sender())
-      // Send the same data to two workers
-      worker1 ! CoordinatedTask(data)
-      worker2 ! CoordinatedTask(data)
+  toggler ! Msg("Hello in active mode.")
+  toggler ! Toggle
+  toggler ! Msg("Now I'm in inactive mode.")
 
-    case PartialResult(text) =>
-      // Collect partial results
-      partials = text :: partials
-      resultCount += 1
-      // If both workers have replied, aggregate
-      if (resultCount == 2) {
-        val aggregated = partials.reverse.mkString(" | ")
-        println(s"ManagerActor: Aggregated -> $aggregated")
-        originalSender.foreach(_ ! FinalResult(aggregated))
-      }
+  // Use Reset to go back to active no matter what
+  toggler ! Reset
+  toggler ! Msg("Back in active mode.")
 
-    case _ => println("ManagerActor: Unknown message.")
-  }
-}
-
-object ManagerApp extends App {
-  val system = ActorSystem("ManagerSystem")
-
-  val w1 = system.actorOf(Props(new WorkerActor(1)), "worker1")
-  val w2 = system.actorOf(Props(new WorkerActor(2)), "worker2")
-  val manager = system.actorOf(Props(new ManagerActor(w1, w2)), "manager")
-
-  // Send a coordinated task
-  manager ! CoordinatedTask("some data")
-
-  Thread.sleep(1000)
+  Thread.sleep(500)
   system.terminate()
 }

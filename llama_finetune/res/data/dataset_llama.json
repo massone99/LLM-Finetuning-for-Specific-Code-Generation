@@ -898,5 +898,77 @@
         "value": "import akka.actor.{Actor, ActorSystem, Props}\nimport scala.collection.mutable.ListBuffer\nimport scala.concurrent.duration._\nimport scala.concurrent.ExecutionContext.Implicits.global\n\ncase class SubmitMetric(value: Double)\n\nclass MetricsCollectorActor extends Actor {\n  val metrics = ListBuffer[Double]()\n\n  override def preStart(): Unit = {\n    context.system.scheduler.scheduleWithFixedDelay(3.seconds, 3.seconds, self, \"printSummary\")\n  }\n\n  def receive: Receive = {\n    case SubmitMetric(value) =>\n      metrics += value\n      println(s\"MetricsCollector: Received metric: $value\")\n    case \"printSummary\" =>\n      if (metrics.nonEmpty) {\n        val sum = metrics.sum\n        val avg = sum / metrics.size\n        println(f\"MetricsCollector: Collected ${metrics.size} metrics. Sum: $$${sum}%.2f, Average: $$${avg}%.2f\")\n        metrics.clear()\n      } else {\n        println(\"MetricsCollector: No metrics to report.\")\n      }\n    case _ => println(\"MetricsCollector: Received unknown message.\")\n  }\n}\n\nobject MetricsCollectorApp extends App {\n  val system = ActorSystem(\"MetricsCollectorSystem\")\n  val collector = system.actorOf(Props[MetricsCollectorActor](), \"metricsCollector\")\n\n  collector ! SubmitMetric(10.5)\n  collector ! SubmitMetric(20.0)\n  collector ! SubmitMetric(15.5)\n\n  Thread.sleep(10000)\n  system.terminate()\n}"
       }
     ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create an Akka Actor in Scala named NotifierActor that sends a notification when it receives a Notify(user: String, message: String).\nHuman: Add a second message type for group notifications, e.g., NotifyGroup(groupName: String, message: String)."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\ncase class Notify(user: String, message: String)\n\nclass NotifierActor extends Actor {\n  def receive: Receive = {\n    case Notify(user, msg) =>\n      println(s\"NotifierActor: Sending notification to $user -> $msg\")\n    case _ =>\n      println(\"NotifierActor: Received unknown message.\")\n  }\n}\n\nobject NotifierApp extends App {\n  val system = ActorSystem(\"NotifierSystem\")\n  val notifier = system.actorOf(Props[NotifierActor](), \"notifierActor\")\n\n  notifier ! Notify(\"Alice\", \"You have a new message!\")\n  system.terminate()\n}"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a simple conversation demonstrating a ChatActor that handles Join and Chat messages.\nHuman: Add a Leave(name: String) message and show removing users from the set."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\ncase class Join(name: String)\ncase class Chat(user: String, message: String)\n\nclass ChatActor extends Actor {\n  var users: Set[String] = Set.empty\n  def receive: Receive = {\n    case Join(name) =>\n      users += name\n      println(s\"ChatActor: $name joined. Current users: $users\")\n    case Chat(user, message) =>\n      println(s\"ChatActor: [$user] $message\")\n    case _ => println(\"ChatActor: Unknown message.\")\n  }\n}\n\nobject ChatApp extends App {\n  val system = ActorSystem(\"ChatSystem\")\n  val chatActor = system.actorOf(Props[ChatActor](), \"chatActor\")\n\n  chatActor ! Join(\"Alice\")\n  chatActor ! Join(\"Bob\")\n  chatActor ! Chat(\"Alice\", \"Hello Bob!\")\n\n  system.terminate()\n}"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a BankAccountActor in Scala that handles Deposit and Withdraw messages, replying with the new balance."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\n// Messages representing bank account actions\ncase class Deposit(amount: Double)\ncase class Withdraw(amount: Double)\n// Reply message containing the updated balance\ncase class UpdatedBalance(balance: Double)\n\n// Actor that manages a simple bank account\nclass BankAccountActor extends Actor {\n  private var balance = 0.0\n\n  def receive: Receive = {\n    case Deposit(amount) =>\n      balance += amount\n      println(s\"BankAccountActor: Deposited $$ $amount, new balance: $$ $balance.\")\n      sender() ! UpdatedBalance(balance)\n\n    case Withdraw(amount) =>\n      if (balance >= amount) {\n        balance -= amount\n        println(s\"BankAccountActor: Withdrew $$ $amount, new balance: $$ $balance.\")\n        sender() ! UpdatedBalance(balance)\n      } else {\n        println(s\"BankAccountActor: Insufficient funds to withdraw $$ $amount.\")\n        sender() ! UpdatedBalance(balance) // Return current balance\n      }\n\n    case _ =>\n      println(\"BankAccountActor: Unknown message.\")\n  }\n}\n\nobject BankAccountApp extends App {\n  val system = ActorSystem(\"BankSystem\")\n  val account = system.actorOf(Props[BankAccountActor](), \"bankAccount\")\n\n  account ! Deposit(100.0)\n  account ! Withdraw(30.0)\n  account ! Withdraw(80.0)\n\n  Thread.sleep(1000)\n  system.terminate()\n}"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a BankAccountActor in Scala that handles Deposit and Withdraw messages, replying with the new balance.\nHuman: Add a GetBalance message that returns the current balance."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\ncase class Deposit(amount: Double)\ncase class Withdraw(amount: Double)\ncase object GetBalance\ncase class UpdatedBalance(balance: Double)\n\nclass BankAccountActor extends Actor {\n  private var balance = 0.0\n\n  def receive: Receive = {\n    case Deposit(amount) =>\n      balance += amount\n      println(s\"BankAccountActor: Deposited $$ $amount, new balance: $$ $balance.\")\n      sender() ! UpdatedBalance(balance)\n\n    case Withdraw(amount) =>\n      if (balance >= amount) {\n        balance -= amount\n        println(s\"BankAccountActor: Withdrew $$ $amount, new balance: $$ $balance.\")\n        sender() ! UpdatedBalance(balance)\n      } else {\n        println(s\"BankAccountActor: Insufficient funds to withdraw $$ $amount.\")\n        sender() ! UpdatedBalance(balance) // Return current balance\n      }\n\n    case GetBalance =>\n      println(s\"BankAccountActor: Returning current balance: $$ $balance.\")\n      sender() ! UpdatedBalance(balance)\n\n    case _ =>\n      println(\"BankAccountActor: Unknown message.\")\n  }\n}\n\nobject BankAccountApp extends App {\n  val system = ActorSystem(\"BankSystem\")\n  val account = system.actorOf(Props[BankAccountActor](), \"bankAccount\")\n\n  // Various operations\n  account ! Deposit(100.0)\n  account ! Withdraw(30.0)\n  account ! GetBalance\n  account ! Withdraw(80.0)\n  account ! GetBalance\n\n  Thread.sleep(1000)\n  system.terminate()\n}"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a ToggleActor in Scala that switches behavior using context.become. Then allow a second conversation to add a new command."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\n// Command to toggle the state\ncase object Toggle\n// Regular string messages\ncase class Msg(content: String)\n\nclass ToggleActor extends Actor {\n  // Start in active state\n  def receive: Receive = active\n\n  def active: Receive = {\n    case Toggle =>\n      println(\"ToggleActor: Switching from active to inactive.\")\n      context.become(inactive)\n    case Msg(content) =>\n      println(s\"ToggleActor (active) got -> $content\")\n    case _ =>\n      println(\"ToggleActor (active) received an unknown message.\")\n  }\n\n  def inactive: Receive = {\n    case Toggle =>\n      println(\"ToggleActor: Switching from inactive to active.\")\n      context.become(active)\n    case Msg(content) =>\n      println(s\"ToggleActor (inactive) got -> $content\")\n    case _ =>\n      println(\"ToggleActor (inactive) received an unknown message.\")\n  }\n}\n\nobject ToggleApp extends App {\n  val system = ActorSystem(\"ToggleSystem\")\n  val toggler = system.actorOf(Props[ToggleActor](), \"toggleActor\")\n\n  toggler ! Msg(\"Hello in active mode.\")\n  toggler ! Toggle\n  toggler ! Msg(\"Now I'm in inactive mode.\")\n\n  Thread.sleep(500)\n  system.terminate()\n}"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a ToggleActor in Scala that switches behavior using context.become. Then allow a second conversation to add a new command.\nHuman: Add a new Reset command that always returns the actor to the active state, regardless of its current state."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\ncase object Toggle\ncase object Reset\ncase class Msg(content: String)\n\nclass ToggleActor extends Actor {\n  // Start in active state\n  def receive: Receive = active\n\n  def active: Receive = {\n    case Toggle =>\n      println(\"ToggleActor: Switching from active to inactive.\")\n      context.become(inactive)\n    case Reset =>\n      println(\"ToggleActor: Already active, staying active.\")\n      // Remain in the same active state\n    case Msg(content) =>\n      println(s\"ToggleActor (active) got -> $content\")\n    case _ =>\n      println(\"ToggleActor (active) received unknown message.\")\n  }\n\n  def inactive: Receive = {\n    case Toggle =>\n      println(\"ToggleActor: Switching from inactive to active.\")\n      context.become(active)\n    case Reset =>\n      println(\"ToggleActor: Reset invoked, going to active.\")\n      context.become(active)\n    case Msg(content) =>\n      println(s\"ToggleActor (inactive) got -> $content\")\n    case _ =>\n      println(\"ToggleActor (inactive) received unknown message.\")\n  }\n}\n\nobject ToggleApp extends App {\n  val system = ActorSystem(\"ToggleSystem\")\n  val toggler = system.actorOf(Props[ToggleActor](), \"toggleActor\")\n\n  toggler ! Msg(\"Hello in active mode.\")\n  toggler ! Toggle\n  toggler ! Msg(\"Now I'm in inactive mode.\")\n\n  // Use Reset to go back to active no matter what\n  toggler ! Reset\n  toggler ! Msg(\"Back in active mode.\")\n\n  Thread.sleep(500)\n  system.terminate()\n}"
+      }
+    ]
   }
 ]
