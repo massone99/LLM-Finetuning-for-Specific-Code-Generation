@@ -1,0 +1,8 @@
+{
+  "build_enabled": false,
+  "run_enabled": true,
+  "hash_enabled": false,
+  "append_enabled": true,
+  "input_dataset": "/home/lorix/Documenti/uni/tesi/finetuning-llama3.2-scala-for-dsl/dataset_builder/data/new_data.json",
+  "main_dataset": "/home/lorix/Documenti/uni/tesi/finetuning-llama3.2-scala-for-dsl/llama_finetune/res/data/dataset_llama.json"
+}

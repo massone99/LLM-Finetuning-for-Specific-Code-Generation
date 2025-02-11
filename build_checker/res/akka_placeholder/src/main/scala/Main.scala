@@ -1,51 +1,46 @@
-import akka.actor.{Actor, ActorRef, ActorSystem, Props, OneForOneStrategy, SupervisorStrategy}
-import akka.actor.SupervisorStrategy.{Resume, Escalate}
+import akka.actor.{Actor, ActorSystem, Props}
 import scala.concurrent.duration._
+import scala.concurrent.ExecutionContext.Implicits.global
 
-// Define the FaultyChildActor
-class FaultyChildActor extends Actor {
+// Message to initiate a payment
+case class PaymentRequest(orderId: String, amount: Double)
+// Confirmation and Failure messages
+case class PaymentConfirmation(orderId: String)
+case class PaymentFailure(orderId: String, reason: String)
+
+// Actor that simulates payment processing
+class PaymentProcessorActor extends Actor {
   def receive: Receive = {
-    case "causeNull" =>
-      println("FaultyChildActor: Throwing NullPointerException...")
-      throw new NullPointerException("Null pointer exception.")
-    case msg => println(s"FaultyChildActor: Received -> $msg")
-  }
-}
-
-// Define the EscalatingSupervisor
-class EscalatingSupervisor extends Actor {
-  override val supervisorStrategy: SupervisorStrategy = OneForOneStrategy(
-    maxNrOfRetries = 3,
-    withinTimeRange = 1.minute
-  ) {
-    case _: NullPointerException =>
-      println("EscalatingSupervisor: Escalating supervisor strategy due to NullPointerException.")
-      Resume
+    case PaymentRequest(orderId, amount) =>
+      // Log receipt of the payment request
+      println(s"PaymentProcessorActor: Processing payment for order $orderId, amount $$ $amount")
+      // Simulate asynchronous processing with a short delay
+      context.system.scheduler.scheduleOnce(1.second) {
+        if (amount < 1000.0) {
+          println(s"PaymentProcessorActor: Payment for order $orderId is confirmed.")
+          sender() ! PaymentConfirmation(orderId)
+        } else {
+          println(s"PaymentProcessorActor: Payment for order $orderId failed (insufficient funds).")
+          sender() ! PaymentFailure(orderId, "Insufficient funds")
+        }
+      }
     case _ =>
-      println("EscalatingSupervisor: Escalating failure with another strategy.")
-      Escalate
-  }
-
-  // Create the child actor
-  val child: ActorRef = context.actorOf(Props[FaultyChildActor](), "faultyChild")
-
-  def receive: Receive = {
-    case msg => child.forward(msg)
+      // Log unknown messages.
+      println("PaymentProcessorActor: Unknown message.")
   }
 }
 
-// Usage Example (for testing purposes)
-object EscalationHierarchyApp extends App {
-  val system = ActorSystem("EscalationHierarchySystem")
+object PaymentProcessorApp extends App {
+  // Create an ActorSystem named "PaymentSystem"
+  val system = ActorSystem("PaymentSystem")
+  // Create an instance of PaymentProcessorActor
+  val processor = system.actorOf(Props[PaymentProcessorActor](), "paymentProcessor")
 
-  val supervisor = system.actorOf(Props[EscalatingSupervisor](), "escalatingSupervisor")
+  // Send payment requests
+  processor ! PaymentRequest("Order001", 500.0)
+  processor ! PaymentRequest("Order002", 1500.0)
 
-  // Send messages to the child actor
-  supervisor! "Hello Child"
-  supervisor! "causeNull"   // Should trigger NullPointerException and escalate
-  supervisor! "After Escalation"
-
-  // Allow some time for processing before shutdown
+  // Wait briefly for processing, then terminate
   Thread.sleep(2000)
   system.terminate()
 }

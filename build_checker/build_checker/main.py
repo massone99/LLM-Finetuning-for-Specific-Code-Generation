@@ -8,6 +8,7 @@ from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QLabel, QPushButton, 
     QCheckBox, QApplication, QFileDialog, QTextEdit
 )
+from config_manager import ConfigManager
 
 # Configure logging
 logger = logging.getLogger("BuildCheckerLogger")
@@ -383,6 +384,23 @@ class DatasetProcessorGUI(QMainWindow):
         
         # Add test window property
         self.test_window = None
+
+        # Add config manager
+        self.config_manager = ConfigManager()
+        
+        # Add save/load config buttons
+        self.save_config_button = QPushButton("Save Configuration")
+        self.load_config_button = QPushButton("Load Configuration") 
+        self.save_config_button.clicked.connect(self.save_current_config)
+        self.load_config_button.clicked.connect(self.load_saved_config)
+
+        # Add buttons to layout before status label
+        layout.addWidget(self.save_config_button)
+        layout.addWidget(self.load_config_button)
+        layout.addWidget(self.status_label)
+
+        # Load saved config on startup
+        self.load_saved_config()
     
     def open_test_window(self):
         if not self.test_window:
@@ -482,6 +500,44 @@ class DatasetProcessorGUI(QMainWindow):
                     raise e
             else:
                 self.status_label.setText("Error loading dataset")
+
+    def save_current_config(self):
+        """Save current GUI state to config file"""
+        config = {
+            "build_enabled": self.build_checkbox.isChecked(),
+            "run_enabled": self.run_checkbox.isChecked(),
+            "hash_enabled": self.hash_checkbox.isChecked(),
+            "append_enabled": self.append_checkbox.isChecked(),
+            "input_dataset": self.selected_file or "",
+            "main_dataset": self.main_dataset_path or ""
+        }
+        if self.config_manager.save_config(config):
+            self.status_label.setText("Configuration saved successfully")
+        else:
+            self.status_label.setText("Error saving configuration")
+
+    def load_saved_config(self):
+        """Load and apply saved configuration"""
+        config = self.config_manager.load_config()
+        
+        # Apply checkbox states
+        self.build_checkbox.setChecked(config["build_enabled"])
+        self.run_checkbox.setChecked(config["run_enabled"]) 
+        self.hash_checkbox.setChecked(config["hash_enabled"])
+        self.append_checkbox.setChecked(config["append_enabled"])
+
+        # Apply file paths if they exist
+        if config["input_dataset"] and os.path.exists(config["input_dataset"]):
+            self.selected_file = config["input_dataset"]
+            self.file_label.setText(f"Selected: {os.path.basename(self.selected_file)}")
+            self.process_button.setEnabled(True)
+
+        if config["main_dataset"] and os.path.exists(config["main_dataset"]):
+            self.main_dataset_path = config["main_dataset"]
+            self.main_dataset_label.setText(f"Main dataset: {os.path.basename(self.main_dataset_path)}")
+
+        # Update visibility based on append state
+        self.handle_append_state(config["append_enabled"])
 
 def main():
     app = QApplication(sys.argv)
