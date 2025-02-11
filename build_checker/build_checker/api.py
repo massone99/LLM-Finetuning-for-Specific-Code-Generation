@@ -116,10 +116,19 @@ class BuildCheckerAPI:
                 return False, f"Build failed: {build_msg}"
 
         if run:
-            success, msg = self.run_project()
+            success, msg, stdout = self.run_project()  # Modified to return stdout
             if not success:
                 logger.error(f"Run failed for {snippet_info}")
                 logger.error(f"Run output: {msg}")
+                # Save failed snippet with its output
+                failing_snippet = {
+                    "idx": idx,
+                    "prompt": prompt,
+                    "code": code,
+                    "error_output": msg,
+                    "run_output": stdout  # Add the stdout from the failed run
+                }
+                self._save_failing_snippet(failing_snippet)
             else:
                 logger.info(f"Successfully ran {snippet_info}")
             return success, msg
@@ -142,7 +151,7 @@ class BuildCheckerAPI:
             logger.error(f"Build error: {e}")
             return False, "sbt not found"
 
-    def run_project(self) -> tuple[bool, str]:
+    def run_project(self) -> tuple[bool, str, str]:  # Modified return type
         try:
             result = subprocess.run(["sbt", "run"],
                                 cwd=self.output_directory,
@@ -150,16 +159,16 @@ class BuildCheckerAPI:
                                 text=True,
                                 check=True)
             logger.info("Successfully ran snippet")
-            return True, result.stdout
+            return True, result.stdout, result.stdout
         except subprocess.CalledProcessError as e:
             # Include both stderr and stdout in error output for better debugging
             error_msg = f"STDOUT:\n{e.stdout}\nSTDERR:\n{e.stderr}"
             logger.error(f"Run error: {error_msg}")
-            return False, error_msg
+            return False, error_msg, e.stdout  # Return stdout separately
         except FileNotFoundError:
             error_msg = "sbt not found"
             logger.error(error_msg)
-            return False, error_msg
+            return False, error_msg, ""
 
     def evaluate_generated_code(self, dataset_path, run_flag) -> tuple:
         dataset = self.load_json_dataset(dataset_path)
@@ -205,6 +214,21 @@ class BuildCheckerAPI:
     def _save_failing_snippets(self, snippets):
         with open(self.failing_snippets_path, "w") as f:
             json.dump(snippets, f, indent=2)
+
+    def _save_failing_snippet(self, snippet):
+        """Save a single failing snippet by appending it to the failing_snippets.json file"""
+        failing_snippets = []
+        if os.path.exists(self.failing_snippets_path):
+            with open(self.failing_snippets_path, 'r') as f:
+                try:
+                    failing_snippets = json.load(f)
+                except json.JSONDecodeError:
+                    failing_snippets = []
+
+        failing_snippets.append(snippet)
+        
+        with open(self.failing_snippets_path, "w") as f:
+            json.dump(failing_snippets, f, indent=2)
 
     def _get_prompt_and_code(self, conversation):
         """Get all prompts and responses from a conversation, combining previous context"""

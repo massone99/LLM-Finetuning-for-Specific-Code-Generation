@@ -1078,5 +1078,1973 @@
         "value": "import akka.actor.{Actor, ActorSystem, Props}\nimport akka.routing.RoundRobinPool\n\ncase class Work(job: String)\n\nclass WorkerActor extends Actor {\n  def receive: Receive = {\n    case Work(job) =>\n      println(s\"${self.path.name} working on: $job\")\n    case _ =>\n      println(s\"${self.path.name} received an unknown message.\")\n  }\n}\n\nobject RouterActorApp extends App {\n  val system = ActorSystem(\"RouterSystem\")\n\n  // Create a router with 3 workers\n  val router = system.actorOf(\n    RoundRobinPool(3).props(Props[WorkerActor]()),\n    \"workerRouter\"\n  )\n\n  // Send multiple tasks\n  for (i <- 1 to 5) {\n    router ! Work(s\"Task-$i\")\n  }\n\n  Thread.sleep(500)\n  system.terminate()\n}"
       }
     ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a ToggleFSM actor in Scala using the FSM trait that toggles between On and Off states every second. Include detailed comments."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{ActorSystem, Props, FSM}\nimport scala.concurrent.duration._\n\n// Define possible states\nsealed trait SwitchState\ncase object On extends SwitchState\ncase object Off extends SwitchState\n\n// Define data type (here we don't use any extra data)\nsealed trait SwitchData\ncase object Uninitialized extends SwitchData\n\n// ToggleFSM actor that switches state every second\nclass ToggleFSM extends FSM[SwitchState, SwitchData] {\n  // Start in Off state\n  startWith(Off, Uninitialized)\n\n  // In Off state, after 1 second, transition to On\n  when(Off, stateTimeout = 1.second) {\n    case Event(StateTimeout, _) =>\n      println(\"ToggleFSM: Switching from Off to On\")\n      goto(On)\n  }\n\n  // In On state, after 1 second, transition back to Off\n  when(On, stateTimeout = 1.second) {\n    case Event(StateTimeout, _) =>\n      println(\"ToggleFSM: Switching from On to Off\")\n      goto(Off)\n  }\n\n  // Initialize the FSM\n  initialize()\n}\n\nobject ToggleFSMApp extends App {\n  val system = ActorSystem(\"ToggleFSMSystem\")\n  val fsmActor = system.actorOf(Props[ToggleFSM](), \"toggleFSM\")\n\n  // Let the FSM run for a few seconds\n  Thread.sleep(5000)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a ParentActor in Scala that creates child actors and sends them messages using the ! operator. Do not call methods directly on ActorRefs. Include comments."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorRef, ActorSystem, Props}\n\n// Message for children\ncase class ChildMsg(content: String)\n\n// ChildActor simply prints any received ChildMsg\nclass ChildActor extends Actor {\n  def receive: Receive = {\n    case ChildMsg(content) => println(s\"${self.path.name} received: $content\")\n    case _ => println(s\"${self.path.name} received an unknown message\")\n  }\n}\n\n// ParentActor creates two child actors and forwards ChildMsg messages to them\nclass ParentActor extends Actor {\n  // Create child actors and store their ActorRefs\n  val child1: ActorRef = context.actorOf(Props[ChildActor](), \"child1\")\n  val child2: ActorRef = context.actorOf(Props[ChildActor](), \"child2\")\n\n  def receive: Receive = {\n    case msg: ChildMsg =>\n      // Send the message to both children using the ! operator\n      child1 ! msg\n      child2 ! msg\n    case _ => println(\"ParentActor: Received an unknown message\")\n  }\n}\n\nobject ParentActorApp extends App {\n  val system = ActorSystem(\"ParentSystem\")\n  val parent = system.actorOf(Props[ParentActor](), \"parentActor\")\n\n  // Send a message to the parent actor which it forwards to its children\n  parent ! ChildMsg(\"Hello, children!\")\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a SafeStringActor in Scala that safely converts a message to lower case, only if it is a String. Include comments."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\n// SafeStringActor processes messages only if they are Strings\nclass SafeStringActor extends Actor {\n  def receive: Receive = {\n    // Pattern match to ensure msg is a String before calling toLowerCase\n    case msg: String =>\n      val lower = msg.toLowerCase\n      println(s\"SafeStringActor processed: $lower\")\n    case _ =>\n      println(\"SafeStringActor: Received non-string message\")\n  }\n}\n\nobject SafeStringActorApp extends App {\n  val system = ActorSystem(\"SafeStringSystem\")\n  val safeActor = system.actorOf(Props[SafeStringActor](), \"safeActor\")\n\n  safeActor ! \"HeLLo WorLD\"\n  safeActor ! 123  // This will trigger the non-string case\n\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create an InitializationActor in Scala that demonstrates proper usage of immutable vals by initializing configuration in preStart and never reassigning it. Include comments."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\n// InitializationActor uses an immutable val for configuration\nclass InitializationActor extends Actor {\n  // Immutable configuration value; it is set only once\n  val configValue: String = \"InitialConfig\"\n\n  override def preStart(): Unit = {\n    println(s\"InitializationActor starting with config: $configValue\")\n  }\n\n  def receive: Receive = {\n    case \"getConfig\" =>\n      // Respond with the configuration value\n      sender() ! configValue\n    case _ => println(\"InitializationActor: Received unknown message\")\n  }\n}\n\nobject InitializationActorApp extends App {\n  val system = ActorSystem(\"InitSystem\")\n  val initActor = system.actorOf(Props[InitializationActor](), \"initActor\")\n\n  initActor ! \"getConfig\"\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a ScheduledActor in Scala that uses context.system.scheduler.scheduleWithFixedDelay to send itself a tick message every second. Include clear comments."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props, Cancellable}\nimport scala.concurrent.duration._\nimport scala.concurrent.ExecutionContext.Implicits.global\n\n// ScheduledActor schedules a 'tick' message to itself every second\nclass ScheduledActor extends Actor {\n  var cancellable: Cancellable = _\n\n  override def preStart(): Unit = {\n    // Schedule 'tick' every 1 second, starting immediately\n    cancellable = context.system.scheduler.scheduleWithFixedDelay(0.seconds, 1.second, self, \"tick\")\n  }\n\n  def receive: Receive = {\n    case \"tick\" => println(\"ScheduledActor: Tick received\")\n    case _ => println(\"ScheduledActor: Unknown message\")\n  }\n\n  override def postStop(): Unit = {\n    // Cancel the scheduled task when the actor stops\n    cancellable.cancel()\n  }\n}\n\nobject ScheduledActorApp extends App {\n  val system = ActorSystem(\"ScheduledSystem\")\n  val actor = system.actorOf(Props[ScheduledActor](), \"scheduledActor\")\n\n  // Let the actor run for 3 seconds before terminating\n  Thread.sleep(3000)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create two actors, PingActor and PongActor, where PingActor sends 'Ping' and PongActor responds with 'Pong'."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorRef, ActorSystem, Props}\n\ncase object Ping\ncase object Pong\n\n// PingActor sends a Ping to PongActor and expects a Pong back\nclass PingActor(pong: ActorRef) extends Actor {\n  override def preStart(): Unit = {\n    pong ! Ping\n  }\n  \n  def receive: Receive = {\n    case Pong =>\n      println(\"PingActor: Received Pong, sending Ping again.\")\n      pong ! Ping\n    case _ => println(\"PingActor: Unknown message received.\")\n  }\n}\n\n// PongActor responds with Pong when it receives Ping\nclass PongActor extends Actor {\n  def receive: Receive = {\n    case Ping =>\n      println(\"PongActor: Received Ping, replying with Pong.\")\n      sender() ! Pong\n    case _ => println(\"PongActor: Unknown message received.\")\n  }\n}\n\nobject PingPongApp extends App {\n  val system = ActorSystem(\"PingPongSystem\")\n  val pongActor = system.actorOf(Props[PongActor](), \"pongActor\")\n  val pingActor = system.actorOf(Props(new PingActor(pongActor)), \"pingActor\")\n  Thread.sleep(1000)\n  system.terminate()\n}"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a ChildWatcher actor in Scala that watches a child actor and logs when it terminates."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props, Terminated}\n\nclass ChildActor extends Actor {\n  def receive: Receive = {\n    case msg => println(s\"ChildActor received: $msg\")\n  }\n}\n\nclass ChildWatcher extends Actor {\n  // Create a child and start watching it\n  val child = context.actorOf(Props[ChildActor](), \"childActor\")\n  context.watch(child)\n  \n  def receive: Receive = {\n    case msg => child ! msg\n    case Terminated(ref) => println(s\"ChildWatcher: Child $ref terminated\")\n  }\n}\n\nobject ChildWatcherApp extends App {\n  val system = ActorSystem(\"ChildWatcherSystem\")\n  val watcher = system.actorOf(Props[ChildWatcher](), \"watcher\")\n  watcher ! \"Hello Child\"\n  Thread.sleep(500)\n  system.terminate()\n}"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create an AskPatternActor in Scala that uses the ask pattern to request a greeting from a Responder actor and prints the response."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\nimport akka.pattern.ask\nimport akka.util.Timeout\nimport scala.concurrent.Await\nimport scala.concurrent.duration._\n\ncase class Greet(name: String)\ncase class Greeting(message: String)\n\nclass Responder extends Actor {\n  def receive: Receive = {\n    case Greet(name) => sender() ! Greeting(s\"Hello, $name!\")\n  }\n}\n\nobject AskPatternActorApp extends App {\n  val system = ActorSystem(\"AskPatternSystem\")\n  val responder = system.actorOf(Props[Responder](), \"responder\")\n  implicit val timeout: Timeout = Timeout(2.seconds)\n  \n  val future = responder ? Greet(\"Alice\")\n  val result = Await.result(future, timeout.duration).asInstanceOf[Greeting]\n  println(s\"Received greeting: ${result.message}\")\n  \n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a ConfigurableActor in Scala that reads a configuration value from the ActorSystem's config and logs it."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\nclass ConfigurableActor extends Actor {\n  // Read configuration from the ActorSystem's config\n  val configValue: String = context.system.settings.config.getString(\"myapp.configValue\")\n  \n  override def preStart(): Unit = {\n    println(s\"ConfigurableActor starting with config: $configValue\")\n  }\n  \n  def receive: Receive = {\n    case _ => println(\"ConfigurableActor: Received message\")\n  }\n}\n\nobject ConfigurableActorApp extends App {\n  val system = ActorSystem(\"ConfigSystem\")\n  val actor = system.actorOf(Props[ConfigurableActor](), \"configActor\")\n  actor ! \"test\"\n  Thread.sleep(500)\n  system.terminate()\n}\n\n// Note: Ensure your configuration file (application.conf) contains:\n// myapp.configValue = \"SomeConfig\"\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a SchedulerWithCancel actor in Scala that schedules a periodic message and cancels it after 3 messages."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props, Cancellable}\nimport scala.concurrent.duration._\nimport scala.concurrent.ExecutionContext.Implicits.global\n\ncase object Tick\n\nclass SchedulerWithCancel extends Actor {\n  var tickCount = 0\n  var scheduler: Cancellable = _\n\n  override def preStart(): Unit = {\n    scheduler = context.system.scheduler.scheduleWithFixedDelay(0.seconds, 1.second, self, Tick)\n  }\n\n  def receive: Receive = {\n    case Tick =>\n      tickCount += 1\n      println(s\"SchedulerWithCancel: Tick $tickCount\")\n      if (tickCount >= 3) scheduler.cancel()\n  }\n}\n\nobject SchedulerWithCancelApp extends App {\n  val system = ActorSystem(\"SchedulerSystem\")\n  val actor = system.actorOf(Props[SchedulerWithCancel](), \"schedulerActor\")\n  Thread.sleep(4000)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create an AdvancedStashingActor in Scala that stashes messages until it receives a 'Start' message, then processes all stashed messages."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props, Stash}\n\ncase object Start\ncase class Work(task: String)\n\nclass AdvancedStashingActor extends Actor with Stash {\n  def receive: Receive = waiting\n\n  def waiting: Receive = {\n    case Start =>\n      println(\"AdvancedStashingActor: Received Start, unstashing messages.\")\n      unstashAll()\n      context.become(working)\n    case msg =>\n      println(s\"AdvancedStashingActor: Stashing message $msg\")\n      stash()\n  }\n\n  def working: Receive = {\n    case Work(task) => println(s\"AdvancedStashingActor: Processing task $task\")\n    case _ => println(\"AdvancedStashingActor (working): Unknown message\")\n  }\n}\n\nobject AdvancedStashingActorApp extends App {\n  val system = ActorSystem(\"AdvancedStashSystem\")\n  val actor = system.actorOf(Props[AdvancedStashingActor](), \"advStashActor\")\n  \n  actor ! Work(\"Task1\")\n  actor ! Work(\"Task2\")\n  actor ! Start\n  actor ! Work(\"Task3\")\n  \n  Thread.sleep(1000)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a RouterGroupActor in Scala that uses a group router to send messages to a set of predefined worker actors."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\nimport akka.routing.BroadcastGroup\n\ncase class Task(job: String)\n\nclass GroupWorker extends Actor {\n  def receive: Receive = {\n    case Task(job) => println(s\"${self.path.name} processing: $job\")\n    case _ => println(s\"${self.path.name} received unknown message\")\n  }\n}\n\nobject RouterGroupActorApp extends App {\n  val system = ActorSystem(\"RouterGroupSystem\")\n  // Create worker actors and get their paths\n  val worker1 = system.actorOf(Props[GroupWorker](), \"worker1\")\n  val worker2 = system.actorOf(Props[GroupWorker](), \"worker2\")\n  val worker3 = system.actorOf(Props[GroupWorker](), \"worker3\")\n\n  // Define the paths for the group router\n  val paths = List(\n    worker1.path.toStringWithoutAddress,\n    worker2.path.toStringWithoutAddress,\n    worker3.path.toStringWithoutAddress\n  )\n  val router = system.actorOf(BroadcastGroup(paths).props(), \"groupRouter\")\n\n  router ! Task(\"Group Task\")\n  Thread.sleep(1000)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a CustomSupervisorStrategyActor in Scala that applies a custom strategy to restart its child on IllegalArgumentException."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props, OneForOneStrategy, SupervisorStrategy}\nimport akka.actor.SupervisorStrategy.{Restart, Escalate}\nimport scala.concurrent.duration._\n\ncase object TriggerFailure\n\nclass ChildForSupervision extends Actor {\n  def receive: Receive = {\n    case TriggerFailure => throw new IllegalArgumentException(\"Forced failure\")\n    case msg => println(s\"ChildForSupervision received: $msg\")\n  }\n}\n\nclass CustomSupervisorStrategyActor extends Actor {\n  override val supervisorStrategy: SupervisorStrategy = OneForOneStrategy(maxNrOfRetries = 3, withinTimeRange = 1.minute) {\n    case _: IllegalArgumentException =>\n      println(\"CustomSupervisorStrategyActor: Restarting child due to IllegalArgumentException\")\n      Restart\n    case _ => Escalate\n  }\n\n  val child = context.actorOf(Props[ChildForSupervision](), \"supervisedChild\")\n  def receive: Receive = {\n    case msg => child.forward(msg)\n  }\n}\n\nobject CustomSupervisorStrategyActorApp extends App {\n  val system = ActorSystem(\"CustomSupervisorSystem\")\n  val supervisor = system.actorOf(Props[CustomSupervisorStrategyActor](), \"customSupervisor\")\n  supervisor ! TriggerFailure\n  Thread.sleep(1000)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a TransformingActor in Scala that transforms any received String to uppercase before printing it."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\nclass TransformingActor extends Actor {\n  def receive: Receive = {\n    case msg: String => println(s\"Transformed: ${msg.toUpperCase}\")\n    case _ => println(\"TransformingActor: Unknown message\")\n  }\n}\n\nobject TransformingActorApp extends App {\n  val system = ActorSystem(\"TransformingSystem\")\n  val transformer = system.actorOf(Props[TransformingActor](), \"transformer\")\n  transformer ! \"hello, actor\"\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a PipeToActor in Scala that uses akka.pattern.pipe to forward the result of a Future to itself."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\nimport akka.pattern.pipe\nimport scala.concurrent.Future\nimport scala.concurrent.ExecutionContext.Implicits.global\nimport scala.concurrent.duration._\n\nclass PipeToActor extends Actor {\n  def receive: Receive = {\n    case \"start\" =>\n      val futureResult = Future {\n        Thread.sleep(200)\n        \"Future result\"\n      }\n      // Pipe the result of the future to self\n      futureResult pipeTo self\n    case result: String => println(s\"PipeToActor received: $result\")\n    case _ => println(\"PipeToActor: Unknown message\")\n  }\n}\n\nobject PipeToActorApp extends App {\n  val system = ActorSystem(\"PipeToSystem\")\n  val actor = system.actorOf(Props[PipeToActor](), \"pipeActor\")\n  actor ! \"start\"\n  Thread.sleep(1000)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a RecoveryActor in Scala that catches exceptions in its receive method and logs a recovery message."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\nclass RecoveryActor extends Actor {\n  def receive: Receive = {\n    case msg: String =>\n      try {\n        if (msg == \"fail\") throw new RuntimeException(\"Failure triggered\")\n        println(s\"RecoveryActor processed: $msg\")\n      } catch {\n        case ex: Exception => println(s\"RecoveryActor recovered from error: ${ex.getMessage}\")\n      }\n    case _ => println(\"RecoveryActor: Unknown message\")\n  }\n}\n\nobject RecoveryActorApp extends App {\n  val system = ActorSystem(\"RecoverySystem\")\n  val actor = system.actorOf(Props[RecoveryActor](), \"recoveryActor\")\n  actor ! \"test\"\n  actor ! \"fail\"\n  actor ! \"continue\"\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a BehaviorSwitchActor in Scala that uses context.become to switch between 'normal' and 'alert' modes based on messages."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\nclass BehaviorSwitchActor extends Actor {\n  def receive: Receive = normal\n\n  def normal: Receive = {\n    case \"alert\" =>\n      println(\"BehaviorSwitchActor: Switching to alert mode\")\n      context.become(alert)\n    case msg => println(s\"Normal mode processing: $msg\")\n  }\n\n  def alert: Receive = {\n    case \"reset\" =>\n      println(\"BehaviorSwitchActor: Returning to normal mode\")\n      context.become(normal)\n    case msg => println(s\"Alert mode processing: $msg\")\n  }\n}\n\nobject BehaviorSwitchActorApp extends App {\n  val system = ActorSystem(\"BehaviorSwitchSystem\")\n  val actor = system.actorOf(Props[BehaviorSwitchActor](), \"behaviorSwitch\")\n  actor ! \"hello\"\n  actor ! \"alert\"\n  actor ! \"warning\"\n  actor ! \"reset\"\n  actor ! \"back to normal\"\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a ReplyActor in Scala that replies to every message with 'Received: ' followed by the message."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\nclass ReplyActor extends Actor {\n  def receive: Receive = {\n    case msg => sender() ! s\"Received: $msg\"\n  }\n}\n\nobject ReplyActorApp extends App {\n  val system = ActorSystem(\"ReplySystem\")\n  val actor = system.actorOf(Props[ReplyActor](), \"replyActor\")\n  actor.tell(\"test message\", actor) // using self as sender for demonstration\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a TupleResponseActor in Scala that replies with a tuple (message, length) when it receives a String."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\nclass TupleResponseActor extends Actor {\n  def receive: Receive = {\n    case msg: String => sender() ! (msg, msg.length)\n    case _ => println(\"TupleResponseActor: Unknown message\")\n  }\n}\n\nobject TupleResponseActorApp extends App {\n  val system = ActorSystem(\"TupleResponseSystem\")\n  val actor = system.actorOf(Props[TupleResponseActor](), \"tupleActor\")\n  actor.tell(\"Hello\", actor)\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a SelfSchedulingActor in Scala that uses context.system.scheduler.scheduleOnce to send itself a delayed message."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\nimport scala.concurrent.duration._\nimport scala.concurrent.ExecutionContext.Implicits.global\n\nclass SelfSchedulingActor extends Actor {\n  override def preStart(): Unit = {\n    // Schedule a one-off message after 1 second\n    context.system.scheduler.scheduleOnce(1.second, self, \"delayed\")\n  }\n\n  def receive: Receive = {\n    case \"delayed\" => println(\"SelfSchedulingActor: Received delayed message\")\n    case _ => println(\"SelfSchedulingActor: Unknown message\")\n  }\n}\n\nobject SelfSchedulingActorApp extends App {\n  val system = ActorSystem(\"SelfSchedulingSystem\")\n  val actor = system.actorOf(Props[SelfSchedulingActor](), \"selfScheduler\")\n  Thread.sleep(1500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a ProgressActor in Scala that simulates long processing by printing progress messages every 200ms."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\nimport scala.concurrent.duration._\nimport scala.concurrent.ExecutionContext.Implicits.global\n\nclass ProgressActor extends Actor {\n  def receive: Receive = {\n    case \"start\" =>\n      (1 to 5).foreach { i =>\n        context.system.scheduler.scheduleOnce(i * 200.milliseconds) {\n          println(s\"ProgressActor: Step $i completed\")\n        }\n      }\n    case _ => println(\"ProgressActor: Unknown message\")\n  }\n}\n\nobject ProgressActorApp extends App {\n  val system = ActorSystem(\"ProgressSystem\")\n  val actor = system.actorOf(Props[ProgressActor](), \"progressActor\")\n  actor ! \"start\"\n  Thread.sleep(1500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a MultiTypeMatcherActor in Scala that handles Int, String, and a custom message type differently."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\ncase class CustomMsg(info: String)\n\nclass MultiTypeMatcherActor extends Actor {\n  def receive: Receive = {\n    case i: Int => println(s\"Received an Int: $i\")\n    case s: String => println(s\"Received a String: $s\")\n    case CustomMsg(info) => println(s\"Received CustomMsg: $info\")\n    case _ => println(\"Unknown message type\")\n  }\n}\n\nobject MultiTypeMatcherActorApp extends App {\n  val system = ActorSystem(\"MultiTypeSystem\")\n  val actor = system.actorOf(Props[MultiTypeMatcherActor](), \"multiMatcher\")\n  actor ! 42\n  actor ! \"Hello\"\n  actor ! CustomMsg(\"Custom info\")\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create an ImplicitExecutionContextActor in Scala that uses the implicit execution context to run a Future."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\nimport scala.concurrent.Future\nimport scala.concurrent.duration._\nimport scala.concurrent.ExecutionContext.Implicits.global\n\nclass ImplicitExecutionContextActor extends Actor {\n  def receive: Receive = {\n    case \"run\" =>\n      Future {\n        Thread.sleep(200)\n        \"Future completed\"\n      } map { result =>\n        println(result)\n      }\n    case _ => println(\"ImplicitExecutionContextActor: Unknown message\")\n  }\n}\n\nobject ImplicitExecutionContextActorApp extends App {\n  val system = ActorSystem(\"ImplicitECSystem\")\n  val actor = system.actorOf(Props[ImplicitExecutionContextActor](), \"implicitECActor\")\n  actor ! \"run\"\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a SelfStoppingActor in Scala that stops itself when it receives a 'stop' message."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\nclass SelfStoppingActor extends Actor {\n  def receive: Receive = {\n    case \"stop\" =>\n      println(\"SelfStoppingActor: Stopping now\")\n      context.stop(self)\n    case msg => println(s\"SelfStoppingActor: Received $msg\")\n  }\n}\n\nobject SelfStoppingActorApp extends App {\n  val system = ActorSystem(\"SelfStoppingSystem\")\n  val actor = system.actorOf(Props[SelfStoppingActor](), \"selfStopper\")\n  actor ! \"hello\"\n  actor ! \"stop\"\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a LifecycleHookActor in Scala that demonstrates preRestart and postRestart methods."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\nclass LifecycleHookActor extends Actor {\n  override def preRestart(reason: Throwable, message: Option[Any]): Unit = {\n    println(s\"LifecycleHookActor: preRestart due to ${reason.getMessage}\")\n    super.preRestart(reason, message)\n  }\n\n  override def postRestart(reason: Throwable): Unit = {\n    println(\"LifecycleHookActor: postRestart\")\n    super.postRestart(reason)\n  }\n\n  def receive: Receive = {\n    case \"fail\" => throw new Exception(\"Failure triggered\")\n    case msg => println(s\"LifecycleHookActor: Received $msg\")\n  }\n}\n\nobject LifecycleHookActorApp extends App {\n  val system = ActorSystem(\"LifecycleHookSystem\")\n  val actor = system.actorOf(Props[LifecycleHookActor](), \"lifecycleActor\")\n  actor ! \"hello\"\n  actor ! \"fail\"\n  Thread.sleep(1000)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a FullLifecycleActor in Scala that demonstrates preStart, postStop, preRestart, and postRestart lifecycle hooks."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\nclass FullLifecycleActor extends Actor {\n  override def preStart(): Unit = println(\"FullLifecycleActor: preStart called\")\n  override def postStop(): Unit = println(\"FullLifecycleActor: postStop called\")\n  override def preRestart(reason: Throwable, message: Option[Any]): Unit = println(\"FullLifecycleActor: preRestart called\")\n  override def postRestart(reason: Throwable): Unit = println(\"FullLifecycleActor: postRestart called\")\n\n  def receive: Receive = {\n    case \"fail\" => throw new Exception(\"Failure triggered\")\n    case msg => println(s\"FullLifecycleActor: Received $msg\")\n  }\n}\n\nobject FullLifecycleActorApp extends App {\n  val system = ActorSystem(\"FullLifecycleSystem\")\n  val actor = system.actorOf(Props[FullLifecycleActor](), \"fullLifecycleActor\")\n  actor ! \"start\"\n  actor ! \"fail\"\n  Thread.sleep(1000)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a DynamicChildCreator actor in Scala that creates a new child actor upon receiving a CreateChild message."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\ncase class CreateChild(name: String)\n\nclass DynamicChildCreator extends Actor {\n  def receive: Receive = {\n    case CreateChild(name) =>\n      val child = context.actorOf(Props[SimpleChildActor](), name)\n      println(s\"DynamicChildCreator: Created child with name $name\")\n    case msg => println(s\"DynamicChildCreator: Received $msg\")\n  }\n}\n\nclass SimpleChildActor extends Actor {\n  def receive: Receive = {\n    case msg => println(s\"SimpleChildActor ${self.path.name} received: $msg\")\n  }\n}\n\nobject DynamicChildCreatorApp extends App {\n  val system = ActorSystem(\"DynamicChildSystem\")\n  val creator = system.actorOf(Props[DynamicChildCreator](), \"creator\")\n  creator ! CreateChild(\"child1\")\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a MessageModifierActor in Scala that receives a String, appends ' modified' to it, and forwards it to another actor."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorRef, ActorSystem, Props}\n\nclass MessageModifierActor(next: ActorRef) extends Actor {\n  def receive: Receive = {\n    case msg: String =>\n      val modified = msg + \" modified\"\n      println(s\"MessageModifierActor: Forwarding modified message: $modified\")\n      next.forward(modified)\n    case _ => println(\"MessageModifierActor: Unknown message\")\n  }\n}\n\nclass FinalReceiver extends Actor {\n  def receive: Receive = {\n    case msg => println(s\"FinalReceiver received: $msg\")\n  }\n}\n\nobject MessageModifierActorApp extends App {\n  val system = ActorSystem(\"ModifierSystem\")\n  val receiver = system.actorOf(Props[FinalReceiver](), \"receiver\")\n  val modifier = system.actorOf(Props(new MessageModifierActor(receiver)), \"modifier\")\n  modifier ! \"Test message\"\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a ParameterizedMessageActor in Scala that uses a case class parameterized message and prints its details."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\ncase class DetailedMsg(id: Int, content: String)\n\nclass ParameterizedMessageActor extends Actor {\n  def receive: Receive = {\n    case DetailedMsg(id, content) => println(s\"Received message with id: $id and content: $content\")\n    case _ => println(\"ParameterizedMessageActor: Unknown message\")\n  }\n}\n\nobject ParameterizedMessageActorApp extends App {\n  val system = ActorSystem(\"ParamMessageSystem\")\n  val actor = system.actorOf(Props[ParameterizedMessageActor](), \"paramActor\")\n  actor ! DetailedMsg(1, \"Hello Parameterized\")\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a DelayedMessageActor in Scala that schedules a one-off delayed message to itself after 2 seconds."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\nimport scala.concurrent.duration._\nimport scala.concurrent.ExecutionContext.Implicits.global\n\nclass DelayedMessageActor extends Actor {\n  override def preStart(): Unit = {\n    context.system.scheduler.scheduleOnce(2.seconds, self, \"delayed\")\n  }\n\n  def receive: Receive = {\n    case \"delayed\" => println(\"DelayedMessageActor: Received delayed message\")\n    case _ => println(\"DelayedMessageActor: Unknown message\")\n  }\n}\n\nobject DelayedMessageActorApp extends App {\n  val system = ActorSystem(\"DelayedMessageSystem\")\n  val actor = system.actorOf(Props[DelayedMessageActor](), \"delayedActor\")\n  Thread.sleep(2500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a FiniteStateActor in Scala that simulates a finite state machine using become to switch between 'idle' and 'busy' states."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\nclass FiniteStateActor extends Actor {\n  def receive: Receive = idle\n\n  def idle: Receive = {\n    case \"work\" =>\n      println(\"FiniteStateActor: Switching to busy state\")\n      context.become(busy)\n    case _ => println(\"FiniteStateActor (idle): Unknown message\")\n  }\n\n  def busy: Receive = {\n    case \"done\" =>\n      println(\"FiniteStateActor: Switching back to idle state\")\n      context.become(idle)\n    case _ => println(\"FiniteStateActor (busy): Processing message\")\n  }\n}\n\nobject FiniteStateActorApp extends App {\n  val system = ActorSystem(\"FiniteStateSystem\")\n  val actor = system.actorOf(Props[FiniteStateActor](), \"finiteStateActor\")\n  actor ! \"work\"\n  actor ! \"random\"\n  actor ! \"done\"\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a TimersActor in Scala that uses the Timers trait to schedule a periodic tick message."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props, Timers}\nimport scala.concurrent.duration._\n\ncase object Tick\n\nclass TimersActor extends Actor with Timers {\n  // Start the timer to send Tick every 1 second\n  timers.startPeriodicTimer(\"TickTimer\", Tick, 1.second)\n  \n  def receive: Receive = {\n    case Tick => println(\"TimersActor: Tick received\")\n    case _ => println(\"TimersActor: Unknown message\")\n  }\n}\n\nobject TimersActorApp extends App {\n  val system = ActorSystem(\"TimersSystem\")\n  val actor = system.actorOf(Props[TimersActor](), \"timersActor\")\n  Thread.sleep(3000)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a CustomMailboxActor in Scala and explain that a custom mailbox would be configured via application.conf. Provide a simple actor example."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\n// CustomMailboxActor simply prints messages; the custom mailbox is set via configuration (not shown here).\nclass CustomMailboxActor extends Actor {\n  def receive: Receive = {\n    case msg => println(s\"CustomMailboxActor received: $msg\")\n  }\n}\n\nobject CustomMailboxActorApp extends App {\n  val system = ActorSystem(\"CustomMailboxSystem\")\n  val actor = system.actorOf(Props[CustomMailboxActor]().withMailbox(\"custom-mailbox\"), \"customMailboxActor\")\n  actor ! \"Test message for custom mailbox\"\n  Thread.sleep(500)\n  system.terminate()\n}\n\n// Note: The custom mailbox must be defined in application.conf.\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a GracefulShutdownActor in Scala that stops gracefully upon receiving a 'shutdown' message."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\nclass GracefulShutdownActor extends Actor {\n  def receive: Receive = {\n    case \"shutdown\" =>\n      println(\"GracefulShutdownActor: Shutting down gracefully.\")\n      context.stop(self)\n    case msg => println(s\"GracefulShutdownActor: Received $msg\")\n  }\n}\n\nobject GracefulShutdownActorApp extends App {\n  val system = ActorSystem(\"ShutdownSystem\")\n  val actor = system.actorOf(Props[GracefulShutdownActor](), \"shutdownActor\")\n  actor ! \"hello\"\n  actor ! \"shutdown\"\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a HotSwappingActor in Scala that uses context.become to swap between two behaviors on receiving a 'swap' message."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\nclass HotSwappingActor extends Actor {\n  def receive: Receive = behaviorA\n\n  def behaviorA: Receive = {\n    case \"swap\" =>\n      println(\"HotSwappingActor: Switching from BehaviorA to BehaviorB\")\n      context.become(behaviorB)\n    case msg => println(s\"BehaviorA processing: $msg\")\n  }\n\n  def behaviorB: Receive = {\n    case \"swap\" =>\n      println(\"HotSwappingActor: Switching from BehaviorB to BehaviorA\")\n      context.become(behaviorA)\n    case msg => println(s\"BehaviorB processing: $msg\")\n  }\n}\n\nobject HotSwappingActorApp extends App {\n  val system = ActorSystem(\"HotSwapSystem\")\n  val actor = system.actorOf(Props[HotSwappingActor](), \"hotSwapper\")\n  actor ! \"test\"\n  actor ! \"swap\"\n  actor ! \"another test\"\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a SelfPathLoggingActor in Scala that logs its own actor path when it receives any message."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\nclass SelfPathLoggingActor extends Actor {\n  def receive: Receive = {\n    case msg => println(s\"SelfPathLoggingActor (${self.path}) received: $msg\")\n  }\n}\n\nobject SelfPathLoggingActorApp extends App {\n  val system = ActorSystem(\"SelfPathSystem\")\n  val actor = system.actorOf(Props[SelfPathLoggingActor](), \"selfPathLogger\")\n  actor ! \"Log my path\"\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create an AskAndPipeActor in Scala that uses the ask pattern and then pipes the result to itself using pipeTo."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorRef, ActorSystem, Props}\nimport akka.pattern.{ask, pipe}\nimport akka.util.Timeout\nimport scala.concurrent.ExecutionContext.Implicits.global\nimport scala.concurrent.duration._\n\nclass AskAndPipeActor(responder: ActorRef) extends Actor {\n  implicit val timeout: Timeout = Timeout(2.seconds)\n  \n  def receive: Receive = {\n    case \"trigger\" =>\n      val futureResponse = responder ? \"hello\"\n      futureResponse pipeTo self\n    case response => println(s\"AskAndPipeActor received: $response\")\n  }\n}\n\nclass SimpleResponder extends Actor {\n  def receive: Receive = {\n    case msg => sender() ! s\"Response to $msg\"\n  }\n}\n\nobject AskAndPipeActorApp extends App {\n  val system = ActorSystem(\"AskAndPipeSystem\")\n  val responder = system.actorOf(Props[SimpleResponder](), \"responder\")\n  val actor = system.actorOf(Props(new AskAndPipeActor(responder)), \"askAndPipe\")\n  actor ! \"trigger\"\n  Thread.sleep(1000)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a ResettableCounterActor in Scala that increments a counter on 'inc' and resets it on 'reset'."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\nclass ResettableCounterActor extends Actor {\n  var counter = 0\n\n  def receive: Receive = {\n    case \"inc\" =>\n      counter += 1\n      println(s\"Counter: $counter\")\n    case \"reset\" =>\n      counter = 0\n      println(\"Counter reset\")\n    case _ => println(\"ResettableCounterActor: Unknown message\")\n  }\n}\n\nobject ResettableCounterActorApp extends App {\n  val system = ActorSystem(\"CounterSystem\")\n  val counterActor = system.actorOf(Props[ResettableCounterActor](), \"counterActor\")\n  counterActor ! \"inc\"\n  counterActor ! \"inc\"\n  counterActor ! \"reset\"\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a BatchCollectorActor in Scala that collects incoming messages in a batch and processes them once the batch reaches 3 messages."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\nclass BatchCollectorActor extends Actor {\n  var batch = List.empty[String]\n  \n  def receive: Receive = {\n    case msg: String =>\n      batch = batch :+ msg\n      if (batch.size >= 3) {\n        println(s\"Processing batch: ${batch.mkString(\", \")}\")\n        batch = Nil\n      }\n    case _ => println(\"BatchCollectorActor: Unknown message\")\n  }\n}\n\nobject BatchCollectorActorApp extends App {\n  val system = ActorSystem(\"BatchSystem\")\n  val collector = system.actorOf(Props[BatchCollectorActor](), \"batchCollector\")\n  collector ! \"msg1\"\n  collector ! \"msg2\"\n  collector ! \"msg3\"\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a PatternFilterActor in Scala that only processes messages that are even numbers."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\nclass PatternFilterActor extends Actor {\n  def receive: Receive = {\n    case i: Int if i % 2 == 0 => println(s\"Even number: $i\")\n    case i: Int => println(s\"Odd number ignored: $i\")\n    case _ => println(\"PatternFilterActor: Unknown message\")\n  }\n}\n\nobject PatternFilterActorApp extends App {\n  val system = ActorSystem(\"PatternFilterSystem\")\n  val actor = system.actorOf(Props[PatternFilterActor](), \"filterActor\")\n  actor ! 4\n  actor ! 5\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create an OptionStateActor in Scala that uses an Option to store a state and updates it upon receiving a message."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\nclass OptionStateActor extends Actor {\n  var state: Option[String] = None\n  \n  def receive: Receive = {\n    case s: String =>\n      state = Some(s)\n      println(s\"State updated to: ${state.get}\")\n    case \"clear\" =>\n      state = None\n      println(\"State cleared\")\n    case _ => println(\"OptionStateActor: Unknown message\")\n  }\n}\n\nobject OptionStateActorApp extends App {\n  val system = ActorSystem(\"OptionStateSystem\")\n  val actor = system.actorOf(Props[OptionStateActor](), \"optionStateActor\")\n  actor ! \"new state\"\n  actor ! \"clear\"\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a ResourceManagerActor in Scala that simulates opening and closing a resource on 'open' and 'close' messages."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\nclass ResourceManagerActor extends Actor {\n  var resourceOpen = false\n\n  def receive: Receive = {\n    case \"open\" =>\n      if (!resourceOpen) {\n        resourceOpen = true\n        println(\"ResourceManagerActor: Resource opened\")\n      } else println(\"ResourceManagerActor: Resource already open\")\n    case \"close\" =>\n      if (resourceOpen) {\n        resourceOpen = false\n        println(\"ResourceManagerActor: Resource closed\")\n      } else println(\"ResourceManagerActor: Resource already closed\")\n    case _ => println(\"ResourceManagerActor: Unknown message\")\n  }\n}\n\nobject ResourceManagerActorApp extends App {\n  val system = ActorSystem(\"ResourceSystem\")\n  val actor = system.actorOf(Props[ResourceManagerActor](), \"resourceManager\")\n  actor ! \"open\"\n  actor ! \"close\"\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a HealthCheckActor in Scala that uses a scheduler to check its health status every second."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\nimport scala.concurrent.duration._\nimport scala.concurrent.ExecutionContext.Implicits.global\n\nclass HealthCheckActor extends Actor {\n  override def preStart(): Unit = {\n    context.system.scheduler.scheduleWithFixedDelay(0.seconds, 1.second, self, \"healthCheck\")\n  }\n  def receive: Receive = {\n    case \"healthCheck\" => println(\"HealthCheckActor: System is healthy\")\n    case _ => println(\"HealthCheckActor: Unknown message\")\n  }\n}\n\nobject HealthCheckActorApp extends App {\n  val system = ActorSystem(\"HealthCheckSystem\")\n  val actor = system.actorOf(Props[HealthCheckActor](), \"healthChecker\")\n  Thread.sleep(3000)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a ModeSwitchActor in Scala that switches processing mode based on incoming message content using become."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\nclass ModeSwitchActor extends Actor {\n  def receive: Receive = normal\n\n  def normal: Receive = {\n    case \"mode:urgent\" =>\n      println(\"ModeSwitchActor: Switching to urgent mode\")\n      context.become(urgent)\n    case msg => println(s\"Normal mode processing: $msg\")\n  }\n\n  def urgent: Receive = {\n    case \"mode:normal\" =>\n      println(\"ModeSwitchActor: Switching to normal mode\")\n      context.become(normal)\n    case msg => println(s\"Urgent mode processing: $msg\")\n  }\n}\n\nobject ModeSwitchActorApp extends App {\n  val system = ActorSystem(\"ModeSwitchSystem\")\n  val actor = system.actorOf(Props[ModeSwitchActor](), \"modeSwitch\")\n  actor ! \"Hello\"\n  actor ! \"mode:urgent\"\n  actor ! \"Emergency\"\n  actor ! \"mode:normal\"\n  actor ! \"Back to normal\"\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a SelfMessagingActor in Scala that sends a message to itself upon receiving any message."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\nclass SelfMessagingActor extends Actor {\n  def receive: Receive = {\n    case msg =>\n      println(s\"SelfMessagingActor received: $msg, sending self a confirmation\")\n      self ! s\"ack: $msg\"\n    case ack => println(s\"SelfMessagingActor received acknowledgment: $ack\")\n  }\n}\n\nobject SelfMessagingActorApp extends App {\n  val system = ActorSystem(\"SelfMessagingSystem\")\n  val actor = system.actorOf(Props[SelfMessagingActor](), \"selfMessenger\")\n  actor ! \"Test message\"\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create an ImplicitConversionActor in Scala that demonstrates using an implicit conversion to transform a message."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\n// Implicit conversion from Int to String\nimplicit def intToString(i: Int): String = s\"Number: $i\"\n\nclass ImplicitConversionActor extends Actor {\n  def receive: Receive = {\n    case msg: String => println(s\"Processed: $msg\")\n    case _ => println(\"ImplicitConversionActor: Unknown message\")\n  }\n}\n\nobject ImplicitConversionActorApp extends App {\n  val system = ActorSystem(\"ImplicitConversionSystem\")\n  val actor = system.actorOf(Props[ImplicitConversionActor](), \"implicitActor\")\n  // Sending an Int, which will be implicitly converted to a String\n  actor ! 100\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a ChainForwarderActor in Scala that forwards a message through a chain of three actors."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorRef, ActorSystem, Props}\n\nclass Forwarder(next: ActorRef) extends Actor {\n  def receive: Receive = {\n    case msg => \n      println(s\"Forwarder (${self.path.name}) forwarding: $msg\")\n      next.forward(msg)\n  }\n}\n\nclass FinalReceiver extends Actor {\n  def receive: Receive = {\n    case msg => println(s\"FinalReceiver received: $msg\")\n  }\n}\n\nobject ChainForwarderActorApp extends App {\n  val system = ActorSystem(\"ChainForwarderSystem\")\n  val finalReceiver = system.actorOf(Props[FinalReceiver](), \"finalReceiver\")\n  val forwarder2 = system.actorOf(Props(new Forwarder(finalReceiver)), \"forwarder2\")\n  val forwarder1 = system.actorOf(Props(new Forwarder(forwarder2)), \"forwarder1\")\n  forwarder1 ! \"Chained message\"\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create an AggregatorActor in Scala that aggregates messages over 2 seconds and then prints the aggregated result."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\nimport scala.concurrent.duration._\nimport scala.collection.mutable.ListBuffer\n\nclass AggregatorActor extends Actor {\n  val buffer = ListBuffer.empty[String]\n  \n  import context.dispatcher\n  context.system.scheduler.scheduleOnce(2.seconds, self, \"aggregate\")\n  \n  def receive: Receive = {\n    case msg: String => buffer += msg\n    case \"aggregate\" =>\n      println(s\"Aggregated messages: ${buffer.mkString(\", \")}\")\n      buffer.clear()\n    case _ => println(\"AggregatorActor: Unknown message\")\n  }\n}\n\nobject AggregatorActorApp extends App {\n  val system = ActorSystem(\"AggregatorSystem\")\n  val actor = system.actorOf(Props[AggregatorActor](), \"aggregator\")\n  actor ! \"msg1\"\n  actor ! \"msg2\"\n  actor ! \"msg3\"\n  Thread.sleep(2500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a FakeDBActor in Scala that simulates a database call with a Future and replies with a fake result."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\nimport scala.concurrent.Future\nimport scala.concurrent.ExecutionContext.Implicits.global\nimport scala.concurrent.duration._\n\nclass FakeDBActor extends Actor {\n  def receive: Receive = {\n    case \"query\" =>\n      val originalSender = sender()\n      Future {\n        Thread.sleep(200)\n        \"Fake DB result\"\n      } foreach { result => originalSender ! result }\n    case _ => println(\"FakeDBActor: Unknown message\")\n  }\n}\n\nobject FakeDBActorApp extends App {\n  val system = ActorSystem(\"FakeDBSystem\")\n  val actor = system.actorOf(Props[FakeDBActor](), \"fakeDB\")\n  actor ! \"query\"\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a FutureErrorHandlingActor in Scala that performs a Future computation and handles errors gracefully, sending an error message back to the sender."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\nimport scala.concurrent.Future\nimport scala.concurrent.ExecutionContext.Implicits.global\nimport scala.util.{Success, Failure}\nimport scala.concurrent.duration._\n\nclass FutureErrorHandlingActor extends Actor {\n  def receive: Receive = {\n    case \"compute\" =>\n      val originalSender = sender()\n      Future {\n        Thread.sleep(100)\n        if (scala.util.Random.nextBoolean()) \"Computation successful\" else throw new Exception(\"Computation failed\")\n      } onComplete {\n        case Success(result) => originalSender ! result\n        case Failure(ex) => originalSender ! s\"Error: ${ex.getMessage}\"\n      }\n    case _ => println(\"FutureErrorHandlingActor: Unknown message\")\n  }\n}\n\nobject FutureErrorHandlingActorApp extends App {\n  val system = ActorSystem(\"FutureErrorSystem\")\n  val actor = system.actorOf(Props[FutureErrorHandlingActor](), \"futureErrorActor\")\n  actor ! \"compute\"\n  Thread.sleep(1000)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a SimpleLoggerActor in Scala that logs any received message."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\nclass SimpleLoggerActor extends Actor {\n  def receive: Receive = {\n    case msg => println(s\"SimpleLoggerActor received: $msg\")\n  }\n}\n\nobject SimpleLoggerActorApp extends App {\n  val system = ActorSystem(\"SimpleLoggerSystem\")\n  val logger = system.actorOf(Props[SimpleLoggerActor](), \"logger\")\n  logger ! \"Test message\"\n  Thread.sleep(500)\n  system.terminate()\n}"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a MathFactorialActor in Scala that computes the factorial of an integer and replies with the result."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\ncase class ComputeFactorial(n: Int)\n\nclass MathFactorialActor extends Actor {\n  def factorial(n: Int): BigInt = if (n <= 1) 1 else n * factorial(n - 1)\n  \n  def receive: Receive = {\n    case ComputeFactorial(n) =>\n      val result = factorial(n)\n      println(s\"Factorial of $n is $result\")\n      sender() ! result\n  }\n}\n\nobject MathFactorialActorApp extends App {\n  val system = ActorSystem(\"MathFactorialSystem\")\n  val actor = system.actorOf(Props[MathFactorialActor](), \"factorialActor\")\n  actor ! ComputeFactorial(5)\n  Thread.sleep(500)\n  system.terminate()\n}"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a DelayActor in Scala that delays its response by 500 milliseconds before replying."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\nimport scala.concurrent.duration._\nimport scala.concurrent.ExecutionContext.Implicits.global\n\ncase object DelayedReply\n\nclass DelayActor extends Actor {\n  def receive: Receive = {\n    case msg =>\n      val originalSender = sender()\n      context.system.scheduler.scheduleOnce(500.milliseconds) {\n        originalSender ! s\"Delayed response to: $msg\"\n      }\n  }\n}\n\nobject DelayActorApp extends App {\n  val system = ActorSystem(\"DelaySystem\")\n  val actor = system.actorOf(Props[DelayActor](), \"delayActor\")\n  actor ! \"Hello\"\n  Thread.sleep(1000)\n  system.terminate()\n}"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a CountResetActor in Scala that increments a counter for each message and resets the count when it receives a Reset message."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\ncase object Reset\n\nclass CountResetActor extends Actor {\n  var count = 0\n  def receive: Receive = {\n    case Reset =>\n      println(s\"CountResetActor: Counter reset from $count to 0\")\n      count = 0\n    case _ =>\n      count += 1\n      println(s\"CountResetActor: Current count is $count\")\n  }\n}\n\nobject CountResetActorApp extends App {\n  val system = ActorSystem(\"CountResetSystem\")\n  val actor = system.actorOf(Props[CountResetActor](), \"counter\")\n  actor ! \"msg1\"\n  actor ! \"msg2\"\n  actor ! Reset\n  actor ! \"msg3\"\n  Thread.sleep(500)\n  system.terminate()\n}"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a PrinterActor in Scala that prints messages with a prefix 'Printed:' before the message."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\nclass PrinterActor extends Actor {\n  def receive: Receive = {\n    case msg => println(s\"Printed: $msg\")\n  }\n}\n\nobject PrinterActorApp extends App {\n  val system = ActorSystem(\"PrinterSystem\")\n  val printer = system.actorOf(Props[PrinterActor](), \"printer\")\n  printer ! \"This is a test\"\n  Thread.sleep(500)\n  system.terminate()\n}"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a TimerBasedActor in Scala that uses scheduleOnce to send itself a 'wake' message after 1 second."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\nimport scala.concurrent.duration._\nimport scala.concurrent.ExecutionContext.Implicits.global\n\nclass TimerBasedActor extends Actor {\n  override def preStart(): Unit = {\n    context.system.scheduler.scheduleOnce(1.second, self, \"wake\")\n  }\n  \n  def receive: Receive = {\n    case \"wake\" => println(\"TimerBasedActor: I have been woken up!\")\n    case _ => println(\"TimerBasedActor: Unknown message\")\n  }\n}\n\nobject TimerBasedActorApp extends App {\n  val system = ActorSystem(\"TimerBasedSystem\")\n  val actor = system.actorOf(Props[TimerBasedActor](), \"timerActor\")\n  Thread.sleep(1500)\n  system.terminate()\n}"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a SupervisorStopActor in Scala that supervises a child and stops the child when it throws an exception."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props, OneForOneStrategy, SupervisorStrategy}\nimport akka.actor.SupervisorStrategy.Stop\nimport scala.concurrent.duration._\n\nclass FaultyChild extends Actor {\n  def receive: Receive = {\n    case \"fail\" => throw new Exception(\"Child failure\")\n    case msg => println(s\"FaultyChild received: $msg\")\n  }\n}\n\nclass SupervisorStopActor extends Actor {\n  override val supervisorStrategy = OneForOneStrategy(maxNrOfRetries = 1, withinTimeRange = 1.minute) {\n    case _: Exception => Stop\n  }\n  \n  val child = context.actorOf(Props[FaultyChild](), \"faultyChild\")\n  def receive: Receive = {\n    case msg => child.forward(msg)\n  }\n}\n\nobject SupervisorStopActorApp extends App {\n  val system = ActorSystem(\"SupervisorStopSystem\")\n  val supervisor = system.actorOf(Props[SupervisorStopActor](), \"supervisor\")\n  supervisor ! \"fail\"\n  Thread.sleep(500)\n  system.terminate()\n}"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create an FSMStateActor in Scala using the FSM trait that switches between 'Active' and 'Inactive' states based on a toggle message."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{ActorSystem, Props, FSM}\nimport scala.concurrent.duration._\n\n// Define states\nsealed trait State\ncase object Active extends State\ncase object Inactive extends State\n\n// Define data (unused here)\nsealed trait Data\ncase object Uninitialized extends Data\n\nclass FSMStateActor extends FSM[State, Data] {\n  startWith(Inactive, Uninitialized)\n\n  when(Inactive, stateTimeout = 2.seconds) {\n    case Event(\"toggle\", _) => goto(Active)\n  }\n\n  when(Active, stateTimeout = 2.seconds) {\n    case Event(\"toggle\", _) => goto(Inactive)\n  }\n\n  initialize()\n}\n\nobject FSMStateActorApp extends App {\n  val system = ActorSystem(\"FSMStateSystem\")\n  val fsmActor = system.actorOf(Props[FSMStateActor](), \"fsmActor\")\n  fsmActor ! \"toggle\"\n  Thread.sleep(2500)\n  fsmActor ! \"toggle\"\n  Thread.sleep(2500)\n  system.terminate()\n}"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a ConfigReaderActor in Scala that reads a configuration value from the ActorSystem's config and prints it."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\nclass ConfigReaderActor extends Actor {\n  val configValue: String = context.system.settings.config.getString(\"myapp.value\")\n  def receive: Receive = {\n    case _ => println(s\"ConfigReaderActor: Config value is $configValue\")\n  }\n}\n\nobject ConfigReaderActorApp extends App {\n  val system = ActorSystem(\"ConfigReaderSystem\")\n  val actor = system.actorOf(Props[ConfigReaderActor](), \"configReader\")\n  actor ! \"read\"\n  Thread.sleep(500)\n  system.terminate()\n}\n\n// Note: Ensure application.conf contains: myapp.value = \"ExampleValue\"\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a ForwarderWithLoggingActor in Scala that logs a message before forwarding it to another actor."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorRef, ActorSystem, Props}\n\nclass ForwarderWithLoggingActor(next: ActorRef) extends Actor {\n  def receive: Receive = {\n    case msg =>\n      println(s\"ForwarderWithLoggingActor: Forwarding message: $msg\")\n      next.forward(msg)\n  }\n}\n\nclass FinalReceiverActor extends Actor {\n  def receive: Receive = {\n    case msg => println(s\"FinalReceiverActor received: $msg\")\n  }\n}\n\nobject ForwarderWithLoggingActorApp extends App {\n  val system = ActorSystem(\"ForwarderSystem\")\n  val finalReceiver = system.actorOf(Props[FinalReceiverActor](), \"finalReceiver\")\n  val forwarder = system.actorOf(Props(new ForwarderWithLoggingActor(finalReceiver)), \"forwarder\")\n  forwarder ! \"Hello, world!\"\n  Thread.sleep(500)\n  system.terminate()\n}"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a MultiplexerActor in Scala that sends integer messages to IntWorker and string messages to StringWorker."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\nclass IntWorker extends Actor {\n  def receive: Receive = {\n    case i: Int => println(s\"IntWorker processing: $i\")\n  }\n}\n\nclass StringWorker extends Actor {\n  def receive: Receive = {\n    case s: String => println(s\"StringWorker processing: $s\")\n  }\n}\n\nclass MultiplexerActor(intWorker: akka.actor.ActorRef, stringWorker: akka.actor.ActorRef) extends Actor {\n  def receive: Receive = {\n    case i: Int => intWorker ! i\n    case s: String => stringWorker ! s\n    case _ => println(\"MultiplexerActor: Unknown message\")\n  }\n}\n\nobject MultiplexerActorApp extends App {\n  val system = ActorSystem(\"MultiplexerSystem\")\n  val intWorker = system.actorOf(Props[IntWorker](), \"intWorker\")\n  val stringWorker = system.actorOf(Props[StringWorker](), \"stringWorker\")\n  val multiplexer = system.actorOf(Props(new MultiplexerActor(intWorker, stringWorker)), \"multiplexer\")\n  multiplexer ! 42\n  multiplexer ! \"Hello Multiplexer\"\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a RequestResponseActor in Scala that uses the ask pattern to request data from a DataProvider actor and prints the response."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\nimport akka.pattern.ask\nimport akka.util.Timeout\nimport scala.concurrent.Await\nimport scala.concurrent.duration._\n\ncase object RequestData\n\nclass DataProvider extends Actor {\n  def receive: Receive = {\n    case RequestData => sender() ! \"Data response\"\n  }\n}\n\nclass RequestResponseActor(dataProvider: akka.actor.ActorRef) extends Actor {\n  implicit val timeout: Timeout = Timeout(2.seconds)\n  def receive: Receive = {\n    case \"request\" =>\n      val result = Await.result(dataProvider ? RequestData, timeout.duration)\n      println(s\"RequestResponseActor received: $result\")\n  }\n}\n\nobject RequestResponseActorApp extends App {\n  val system = ActorSystem(\"RequestResponseSystem\")\n  val dataProvider = system.actorOf(Props[DataProvider](), \"dataProvider\")\n  val actor = system.actorOf(Props(new RequestResponseActor(dataProvider)), \"requestResponse\")\n  actor ! \"request\"\n  Thread.sleep(1000)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a DataCollectorActor in Scala that collects incoming messages in a list and processes them when it receives a 'flush' message."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\nclass DataCollectorActor extends Actor {\n  var data = List.empty[String]\n  def receive: Receive = {\n    case msg: String if msg != \"flush\" => data = data :+ msg\n    case \"flush\" =>\n      println(s\"DataCollectorActor: Flushing data: ${data.mkString(\", \")}\")\n      data = Nil\n    case _ => println(\"DataCollectorActor: Unknown message\")\n  }\n}\n\nobject DataCollectorActorApp extends App {\n  val system = ActorSystem(\"DataCollectorSystem\")\n  val collector = system.actorOf(Props[DataCollectorActor](), \"collector\")\n  collector ! \"one\"\n  collector ! \"two\"\n  collector ! \"flush\"\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a RateLimiterActor in Scala that processes only one message per second and ignores others."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\nimport scala.concurrent.duration._\nimport scala.concurrent.ExecutionContext.Implicits.global\n\nclass RateLimiterActor extends Actor {\n  var lastProcessed = System.currentTimeMillis()\n  def receive: Receive = {\n    case msg =>\n      val now = System.currentTimeMillis()\n      if (now - lastProcessed >= 1000) {\n        println(s\"RateLimiterActor processing: $msg\")\n        lastProcessed = now\n      } else {\n        println(s\"RateLimiterActor ignoring: $msg\")\n      }\n  }\n}\n\nobject RateLimiterActorApp extends App {\n  val system = ActorSystem(\"RateLimiterSystem\")\n  val actor = system.actorOf(Props[RateLimiterActor](), \"rateLimiter\")\n  actor ! \"first\"\n  Thread.sleep(500)\n  actor ! \"second\"\n  Thread.sleep(1500)\n  actor ! \"third\"\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a LazyInitializerActor in Scala that initializes its state only upon receiving the first message."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\nclass LazyInitializerActor extends Actor {\n  var initialized = false\n  var state: String = \"\"\n\n  def receive: Receive = {\n    case msg if !initialized =>\n      state = s\"Initialized with: $msg\"\n      initialized = true\n      println(state)\n    case msg => println(s\"LazyInitializerActor processing: $msg with state: $state\")\n  }\n}\n\nobject LazyInitializerActorApp extends App {\n  val system = ActorSystem(\"LazyInitializerSystem\")\n  val actor = system.actorOf(Props[LazyInitializerActor](), \"lazyInitializer\")\n  actor ! \"first message\"\n  actor ! \"second message\"\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a ChildCreatorActor in Scala that creates a new child actor upon receiving a CreateChild(name) message."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\ncase class CreateChild(name: String)\n\nclass ChildCreatorActor extends Actor {\n  def receive: Receive = {\n    case CreateChild(name) =>\n      val child = context.actorOf(Props[SimpleChildActor](), name)\n      println(s\"ChildCreatorActor created child: $name\")\n    case msg => println(s\"ChildCreatorActor received: $msg\")\n  }\n}\n\nclass SimpleChildActor extends Actor {\n  def receive: Receive = {\n    case msg => println(s\"SimpleChildActor ${self.path.name} received: $msg\")\n  }\n}\n\nobject ChildCreatorActorApp extends App {\n  val system = ActorSystem(\"ChildCreatorSystem\")\n  val creator = system.actorOf(Props[ChildCreatorActor](), \"creator\")\n  creator ! CreateChild(\"child1\")\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a CommandHandlerActor in Scala that logs commands and executes actions for 'start', 'stop', and 'status'."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\nclass CommandHandlerActor extends Actor {\n  def receive: Receive = {\n    case \"start\" => println(\"CommandHandlerActor: Starting process\")\n    case \"stop\" => println(\"CommandHandlerActor: Stopping process\")\n    case \"status\" => println(\"CommandHandlerActor: Status is OK\")\n    case cmd => println(s\"CommandHandlerActor: Unknown command $cmd\")\n  }\n}\n\nobject CommandHandlerActorApp extends App {\n  val system = ActorSystem(\"CommandHandlerSystem\")\n  val actor = system.actorOf(Props[CommandHandlerActor](), \"commandHandler\")\n  actor ! \"start\"\n  actor ! \"status\"\n  actor ! \"stop\"\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a SumActor in Scala that sums all integer messages it receives and replies with the total."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\nclass SumActor extends Actor {\n  var sum = 0\n  def receive: Receive = {\n    case n: Int => \n      sum += n\n      println(s\"SumActor: Current sum is $sum\")\n      sender() ! sum\n    case _ => println(\"SumActor: Unknown message\")\n  }\n}\n\nobject SumActorApp extends App {\n  val system = ActorSystem(\"SumSystem\")\n  val actor = system.actorOf(Props[SumActor](), \"sumActor\")\n  actor ! 10\n  actor ! 20\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a SubtractActor in Scala that subtracts each received integer from an initial value of 100 and prints the result."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\nclass SubtractActor extends Actor {\n  var total = 100\n  def receive: Receive = {\n    case n: Int => \n      total -= n\n      println(s\"SubtractActor: New total is $total\")\n    case _ => println(\"SubtractActor: Unknown message\")\n  }\n}\n\nobject SubtractActorApp extends App {\n  val system = ActorSystem(\"SubtractSystem\")\n  val actor = system.actorOf(Props[SubtractActor](), \"subtractActor\")\n  actor ! 10\n  actor ! 5\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a MultiplyActor in Scala that multiplies all integer messages it receives and prints the product."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\nclass MultiplyActor extends Actor {\n  var product = 1\n  def receive: Receive = {\n    case n: Int => \n      product *= n\n      println(s\"MultiplyActor: Current product is $product\")\n    case _ => println(\"MultiplyActor: Unknown message\")\n  }\n}\n\nobject MultiplyActorApp extends App {\n  val system = ActorSystem(\"MultiplySystem\")\n  val actor = system.actorOf(Props[MultiplyActor](), \"multiplyActor\")\n  actor ! 2\n  actor ! 3\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a DivideActor in Scala that divides 100 by a received integer and handles division by zero gracefully."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\nclass DivideActor extends Actor {\n  def receive: Receive = {\n    case n: Int => \n      if (n == 0) println(\"DivideActor: Division by zero error\")\n      else println(s\"DivideActor: 100 / $n = ${100 / n}\")\n    case _ => println(\"DivideActor: Unknown message\")\n  }\n}\n\nobject DivideActorApp extends App {\n  val system = ActorSystem(\"DivideSystem\")\n  val actor = system.actorOf(Props[DivideActor](), \"divideActor\")\n  actor ! 5\n  actor ! 0\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create an EchoActor in Scala that replies with the same message it receives."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\nclass EchoActor extends Actor {\n  def receive: Receive = {\n    case msg => \n      println(s\"EchoActor: Echoing back $msg\")\n      sender() ! msg\n  }\n}\n\nobject EchoActorApp extends App {\n  val system = ActorSystem(\"EchoSystem\")\n  val actor = system.actorOf(Props[EchoActor](), \"echoActor\")\n  actor.tell(\"Hello Echo\", actor)\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a ToggleSwitchActor in Scala that toggles between 'on' and 'off' states on receiving a Toggle message."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\ncase object Toggle\n\nclass ToggleSwitchActor extends Actor {\n  var state = \"off\"\n  def receive: Receive = {\n    case Toggle => \n      state = if (state == \"off\") \"on\" else \"off\"\n      println(s\"ToggleSwitchActor: State is now $state\")\n    case msg => println(s\"ToggleSwitchActor: Received $msg in state $state\")\n  }\n}\n\nobject ToggleSwitchActorApp extends App {\n  val system = ActorSystem(\"ToggleSwitchSystem\")\n  val actor = system.actorOf(Props[ToggleSwitchActor](), \"toggleSwitch\")\n  actor ! Toggle\n  actor ! Toggle\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a FileSimulatorActor in Scala that simulates reading from a file by returning a fixed string when it receives a ReadFile message."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\ncase object ReadFile\n\nclass FileSimulatorActor extends Actor {\n  def receive: Receive = {\n    case ReadFile => \n      println(\"FileSimulatorActor: Simulating file read\")\n      sender() ! \"File content: Hello from file!\"\n    case _ => println(\"FileSimulatorActor: Unknown message\")\n  }\n}\n\nobject FileSimulatorActorApp extends App {\n  val system = ActorSystem(\"FileSimulatorSystem\")\n  val actor = system.actorOf(Props[FileSimulatorActor](), \"fileSimulator\")\n  actor.tell(ReadFile, actor)\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a SumAggregatorActor in Scala that receives numbers from two workers and prints the total sum when both have responded."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorRef, ActorSystem, Props}\n\ncase class NumberMsg(value: Int)\n\nclass SumAggregatorActor extends Actor {\n  var responses = List.empty[Int]\n  def receive: Receive = {\n    case NumberMsg(num) =>\n      responses = num :: responses\n      if (responses.size == 2) {\n        val total = responses.sum\n        println(s\"SumAggregatorActor: Total sum is $total\")\n        responses = Nil\n      }\n    case _ => println(\"SumAggregatorActor: Unknown message\")\n  }\n}\n\n// Workers simply send a fixed number\nclass NumberWorker(num: Int) extends Actor {\n  def receive: Receive = {\n    case \"start\" => sender() ! NumberMsg(num)\n  }\n}\n\nobject SumAggregatorActorApp extends App {\n  val system = ActorSystem(\"SumAggregatorSystem\")\n  val worker1 = system.actorOf(Props(new NumberWorker(10)), \"worker1\")\n  val worker2 = system.actorOf(Props(new NumberWorker(20)), \"worker2\")\n  val aggregator = system.actorOf(Props(new SumAggregatorActor), \"aggregator\")\n  worker1.tell(\"start\", aggregator)\n  worker2.tell(\"start\", aggregator)\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a ThresholdCounterActor in Scala that counts messages and resets the counter once it reaches a threshold of 5."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\nclass ThresholdCounterActor extends Actor {\n  var count = 0\n  def receive: Receive = {\n    case msg =>\n      count += 1\n      println(s\"ThresholdCounterActor: Count is $count\")\n      if (count >= 5) {\n        println(\"ThresholdCounterActor: Threshold reached, resetting counter\")\n        count = 0\n      }\n  }\n}\n\nobject ThresholdCounterActorApp extends App {\n  val system = ActorSystem(\"ThresholdCounterSystem\")\n  val actor = system.actorOf(Props[ThresholdCounterActor](), \"thresholdCounter\")\n  for (i <- 1 to 7) actor ! s\"msg $i\"\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a StatePrinterActor in Scala that maintains an internal state and prints it when it receives a 'print' message."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\nclass StatePrinterActor extends Actor {\n  var state = \"Initial state\"\n  def receive: Receive = {\n    case s: String if s.startsWith(\"set:\") =>\n      state = s.stripPrefix(\"set:\")\n      println(s\"State updated to: $state\")\n    case \"print\" => println(s\"Current state: $state\")\n    case _ => println(\"StatePrinterActor: Unknown message\")\n  }\n}\n\nobject StatePrinterActorApp extends App {\n  val system = ActorSystem(\"StatePrinterSystem\")\n  val actor = system.actorOf(Props[StatePrinterActor](), \"statePrinter\")\n  actor ! \"set:Active\"\n  actor ! \"print\"\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a TemperatureConverterActor in Scala that converts a Celsius temperature to Fahrenheit when it receives a Temperature value."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\ncase class Temperature(celsius: Double)\n\nclass TemperatureConverterActor extends Actor {\n  def receive: Receive = {\n    case Temperature(c) =>\n      val f = c * 9/5 + 32\n      println(s\"TemperatureConverterActor: $c\u00b0C is $f\u00b0F\")\n    case _ => println(\"TemperatureConverterActor: Unknown message\")\n  }\n}\n\nobject TemperatureConverterActorApp extends App {\n  val system = ActorSystem(\"TemperatureConverterSystem\")\n  val actor = system.actorOf(Props[TemperatureConverterActor](), \"tempConverter\")\n  actor ! Temperature(25)\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a GreetingActor in Scala that responds to a Hello message with a greeting."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\ncase object Hello\n\nclass GreetingActor extends Actor {\n  def receive: Receive = {\n    case Hello => println(\"GreetingActor: Hello, how are you?\")\n    case _ => println(\"GreetingActor: Unknown message\")\n  }\n}\n\nobject GreetingActorApp extends App {\n  val system = ActorSystem(\"GreetingSystem\")\n  val actor = system.actorOf(Props[GreetingActor](), \"greetingActor\")\n  actor ! Hello\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a ShutdownNotifierActor in Scala that logs a message when it receives a 'shutdown' message."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\nclass ShutdownNotifierActor extends Actor {\n  def receive: Receive = {\n    case \"shutdown\" => println(\"ShutdownNotifierActor: Received shutdown, cleaning up...\")\n    case msg => println(s\"ShutdownNotifierActor: Received $msg\")\n  }\n}\n\nobject ShutdownNotifierActorApp extends App {\n  val system = ActorSystem(\"ShutdownNotifierSystem\")\n  val actor = system.actorOf(Props[ShutdownNotifierActor](), \"shutdownNotifier\")\n  actor ! \"shutdown\"\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a LazyLoadingActor in Scala that loads a resource (simulated by a string) only upon receiving its first message."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\nclass LazyLoadingActor extends Actor {\n  lazy val resource: String = {\n    println(\"LazyLoadingActor: Loading resource...\")\n    \"LoadedResource\"\n  }\n  def receive: Receive = {\n    case msg => println(s\"LazyLoadingActor: Using resource: $resource for message: $msg\")\n  }\n}\n\nobject LazyLoadingActorApp extends App {\n  val system = ActorSystem(\"LazyLoadingSystem\")\n  val actor = system.actorOf(Props[LazyLoadingActor](), \"lazyLoader\")\n  actor ! \"First access\"\n  actor ! \"Second access\"\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a CacheActor in Scala that caches a message and replies with the cached result if available, otherwise stores and replies with the new message."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\nclass CacheActor extends Actor {\n  var cache: Option[String] = None\n  def receive: Receive = {\n    case msg: String =>\n      cache match {\n        case Some(cached) => println(s\"CacheActor: Returning cached result: $cached\")\n        case None => \n          cache = Some(msg)\n          println(s\"CacheActor: Caching and returning: $msg\")\n      }\n  }\n}\n\nobject CacheActorApp extends App {\n  val system = ActorSystem(\"CacheSystem\")\n  val actor = system.actorOf(Props[CacheActor](), \"cacheActor\")\n  actor ! \"Data1\"\n  actor ! \"Data2\"\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a LogFilterActor in Scala that only logs messages that contain the keyword 'important'."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\nclass LogFilterActor extends Actor {\n  def receive: Receive = {\n    case msg: String if msg.contains(\"important\") => println(s\"LogFilterActor: $msg\")\n    case _ => // ignore other messages\n  }\n}\n\nobject LogFilterActorApp extends App {\n  val system = ActorSystem(\"LogFilterSystem\")\n  val actor = system.actorOf(Props[LogFilterActor](), \"logFilter\")\n  actor ! \"This is important information\"\n  actor ! \"Not important\"\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a RequestLoggerActor in Scala that logs every incoming message with a timestamp."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\nimport java.time.LocalDateTime\n\nclass RequestLoggerActor extends Actor {\n  def receive: Receive = {\n    case msg => println(s\"${LocalDateTime.now}: Received $msg\")\n  }\n}\n\nobject RequestLoggerActorApp extends App {\n  val system = ActorSystem(\"RequestLoggerSystem\")\n  val actor = system.actorOf(Props[RequestLoggerActor](), \"requestLogger\")\n  actor ! \"Request 1\"\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a SequenceGeneratorActor in Scala that generates the next number in a sequence upon receiving a 'next' message."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\nclass SequenceGeneratorActor extends Actor {\n  var current = 0\n  def receive: Receive = {\n    case \"next\" => \n      current += 1\n      println(s\"SequenceGeneratorActor: Next number is $current\")\n      sender() ! current\n    case _ => println(\"SequenceGeneratorActor: Unknown message\")\n  }\n}\n\nobject SequenceGeneratorActorApp extends App {\n  val system = ActorSystem(\"SequenceGeneratorSystem\")\n  val actor = system.actorOf(Props[SequenceGeneratorActor](), \"sequenceGenerator\")\n  actor ! \"next\"\n  actor ! \"next\"\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a RandomNumberActor in Scala that generates a random number between 1 and 100 and replies with it."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\nimport scala.util.Random\n\nclass RandomNumberActor extends Actor {\n  def receive: Receive = {\n    case \"generate\" => \n      val number = Random.nextInt(100) + 1\n      println(s\"RandomNumberActor: Generated number $number\")\n      sender() ! number\n    case _ => println(\"RandomNumberActor: Unknown message\")\n  }\n}\n\nobject RandomNumberActorApp extends App {\n  val system = ActorSystem(\"RandomNumberSystem\")\n  val actor = system.actorOf(Props[RandomNumberActor](), \"randomNumber\")\n  actor ! \"generate\"\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a TimeoutResponseActor in Scala that simulates a long computation and replies with a timeout message if it takes too long."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\nimport scala.concurrent.Future\nimport scala.concurrent.duration._\nimport scala.concurrent.ExecutionContext.Implicits.global\nimport akka.pattern.after\n\nclass TimeoutResponseActor extends Actor {\n  def receive: Receive = {\n    case \"compute\" =>\n      val originalSender = sender()\n      val computation = Future {\n        Thread.sleep(2000)\n        \"Computation result\"\n      }\n      val timeout = after(1.second, using = context.system.scheduler)(Future.successful(\"Timeout occurred\"))\n      Future.firstCompletedOf(Seq(computation, timeout)).foreach(result => originalSender ! result)\n    case _ => println(\"TimeoutResponseActor: Unknown message\")\n  }\n}\n\nobject TimeoutResponseActorApp extends App {\n  val system = ActorSystem(\"TimeoutResponseSystem\")\n  val actor = system.actorOf(Props[TimeoutResponseActor](), \"timeoutResponse\")\n  actor ! \"compute\"\n  Thread.sleep(2500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a CircuitBreakerDemoActor in Scala that uses akka.pattern.CircuitBreaker to call a simulated unreliable service."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\nimport akka.pattern.CircuitBreaker\nimport scala.concurrent.Future\nimport scala.concurrent.duration._\nimport scala.util.{Success, Failure}\nimport scala.concurrent.ExecutionContext.Implicits.global\n\nclass CircuitBreakerDemoActor extends Actor {\n  val breaker = new CircuitBreaker(\n    scheduler = context.system.scheduler,\n    maxFailures = 2,\n    callTimeout = 1.second,\n    resetTimeout = 3.seconds\n  )\n\n  def unreliableService(): Future[String] = Future {\n    if (scala.util.Random.nextBoolean()) \"Service OK\" else throw new Exception(\"Service failed\")\n  }\n\n  def receive: Receive = {\n    case \"callService\" =>\n      val origSender = sender()\n      breaker.withCircuitBreaker(unreliableService()).onComplete {\n        case Success(result) => origSender ! result\n        case Failure(ex) => origSender ! s\"Error: ${ex.getMessage}\"\n      }\n  }\n}\n\nobject CircuitBreakerDemoActorApp extends App {\n  val system = ActorSystem(\"CircuitBreakerDemoSystem\")\n  val actor = system.actorOf(Props[CircuitBreakerDemoActor](), \"circuitBreakerDemo\")\n  actor ! \"callService\"\n  Thread.sleep(1500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a SplitterActor in Scala that splits a received sentence into words and sends each word to a WordWorker actor."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\nclass WordWorker extends Actor {\n  def receive: Receive = {\n    case word: String => println(s\"WordWorker: Received word '$word'\")\n  }\n}\n\nclass SplitterActor(wordWorker: akka.actor.ActorRef) extends Actor {\n  def receive: Receive = {\n    case sentence: String =>\n      sentence.split(\" \").foreach(wordWorker ! _)\n  }\n}\n\nobject SplitterActorApp extends App {\n  val system = ActorSystem(\"SplitterSystem\")\n  val wordWorker = system.actorOf(Props[WordWorker](), \"wordWorker\")\n  val splitter = system.actorOf(Props(new SplitterActor(wordWorker)), \"splitter\")\n  splitter ! \"Split this sentence into words\"\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a WorkerPoolActor in Scala that uses a RoundRobinPool to process tasks by multiple Worker actors."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\nimport akka.routing.RoundRobinPool\n\ncase class Task(description: String)\n\nclass Worker extends Actor {\n  def receive: Receive = {\n    case Task(desc) => println(s\"${self.path.name} processing: $desc\")\n  }\n}\n\nobject WorkerPoolActorApp extends App {\n  val system = ActorSystem(\"WorkerPoolSystem\")\n  val router = system.actorOf(RoundRobinPool(3).props(Props[Worker]()), \"workerPool\")\n  router ! Task(\"Task 1\")\n  router ! Task(\"Task 2\")\n  router ! Task(\"Task 3\")\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a MergeActor in Scala that receives partial results from two actors and prints the merged result once both have arrived."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\ncase class PartialResult(result: String)\n\nclass MergeActor extends Actor {\n  var results = List.empty[String]\n  def receive: Receive = {\n    case PartialResult(res) =>\n      results = res :: results\n      if (results.size == 2) {\n        println(s\"MergeActor: Merged result: ${results.reverse.mkString(\" + \")}\")\n        results = Nil\n      }\n  }\n}\n\nobject MergeActorApp extends App {\n  val system = ActorSystem(\"MergeSystem\")\n  val mergeActor = system.actorOf(Props[MergeActor](), \"mergeActor\")\n  mergeActor ! PartialResult(\"Result1\")\n  mergeActor ! PartialResult(\"Result2\")\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a BatchingActor in Scala that batches messages received within 1 second and then processes the batch."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\nimport scala.concurrent.duration._\nimport scala.collection.mutable.ListBuffer\nimport scala.concurrent.ExecutionContext.Implicits.global\n\nclass BatchingActor extends Actor {\n  val buffer = ListBuffer.empty[String]\n  import context.dispatcher\n  context.system.scheduler.scheduleOnce(1.second, self, \"process\")\n\n  def receive: Receive = {\n    case msg: String => buffer += msg\n    case \"process\" =>\n      println(s\"BatchingActor: Processing batch: ${buffer.mkString(\", \")}\")\n      buffer.clear()\n      context.system.scheduler.scheduleOnce(1.second, self, \"process\")\n  }\n}\n\nobject BatchingActorApp extends App {\n  val system = ActorSystem(\"BatchingSystem\")\n  val actor = system.actorOf(Props[BatchingActor](), \"batchingActor\")\n  actor ! \"msg1\"\n  actor ! \"msg2\"\n  actor ! \"msg3\"\n  Thread.sleep(1500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a SessionManagerActor in Scala that handles 'startSession' and 'endSession' messages and logs session events."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\nclass SessionManagerActor extends Actor {\n  def receive: Receive = {\n    case \"startSession\" => println(\"SessionManagerActor: Session started\")\n    case \"endSession\" => println(\"SessionManagerActor: Session ended\")\n    case _ => println(\"SessionManagerActor: Unknown session command\")\n  }\n}\n\nobject SessionManagerActorApp extends App {\n  val system = ActorSystem(\"SessionManagerSystem\")\n  val actor = system.actorOf(Props[SessionManagerActor](), \"sessionManager\")\n  actor ! \"startSession\"\n  actor ! \"endSession\"\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a DataFilterActor in Scala that filters out negative integers and only processes non-negative numbers."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\nclass DataFilterActor extends Actor {\n  def receive: Receive = {\n    case n: Int if n >= 0 => println(s\"DataFilterActor: Processing $n\")\n    case n: Int => println(s\"DataFilterActor: Ignoring negative number $n\")\n    case _ => println(\"DataFilterActor: Unknown message\")\n  }\n}\n\nobject DataFilterActorApp extends App {\n  val system = ActorSystem(\"DataFilterSystem\")\n  val actor = system.actorOf(Props[DataFilterActor](), \"dataFilter\")\n  actor ! 10\n  actor ! -5\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a LoggerWithLevelsActor in Scala that logs messages at different levels based on the message prefix ('info:', 'warn:', 'error:')."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\nimport akka.event.Logging\n\nclass LoggerWithLevelsActor extends Actor {\n  val log = Logging(context.system, this)\n  def receive: Receive = {\n    case msg: String if msg.startsWith(\"info:\") => log.info(msg.stripPrefix(\"info:\"))\n    case msg: String if msg.startsWith(\"warn:\") => log.warning(msg.stripPrefix(\"warn:\"))\n    case msg: String if msg.startsWith(\"error:\") => log.error(msg.stripPrefix(\"error:\"))\n    case msg: String => log.debug(s\"Default log: $msg\")\n  }\n}\n\nobject LoggerWithLevelsActorApp extends App {\n  val system = ActorSystem(\"LoggerLevelsSystem\")\n  val actor = system.actorOf(Props[LoggerWithLevelsActor](), \"loggerLevels\")\n  actor ! \"info:This is an info message\"\n  actor ! \"warn:This is a warning\"\n  actor ! \"error:This is an error\"\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a DynamicRouterActor in Scala that routes messages to different child actors based on message type."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorRef, ActorSystem, Props}\n\nclass DynamicRouterActor extends Actor {\n  val intChild: ActorRef = context.actorOf(Props[IntWorker](), \"intChild\")\n  val stringChild: ActorRef = context.actorOf(Props[StringWorker](), \"stringChild\")\n  \n  def receive: Receive = {\n    case i: Int => intChild ! i\n    case s: String => stringChild ! s\n    case _ => println(\"DynamicRouterActor: Unknown message\")\n  }\n}\n\nclass IntWorker extends Actor {\n  def receive: Receive = {\n    case i: Int => println(s\"IntWorker: Received $i\")\n  }\n}\n\nclass StringWorker extends Actor {\n  def receive: Receive = {\n    case s: String => println(s\"StringWorker: Received $s\")\n  }\n}\n\nobject DynamicRouterActorApp extends App {\n  val system = ActorSystem(\"DynamicRouterSystem\")\n  val router = system.actorOf(Props[DynamicRouterActor](), \"dynamicRouter\")\n  router ! 100\n  router ! \"Dynamic routing\"\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a CommandParserActor in Scala that parses a command string and extracts the command and its parameter."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\nclass CommandParserActor extends Actor {\n  def receive: Receive = {\n    case cmd: String =>\n      val parts = cmd.split(\":\")\n      if (parts.length == 2) {\n        println(s\"CommandParserActor: Command = ${parts(0)}, Parameter = ${parts(1)}\")\n      } else {\n        println(s\"CommandParserActor: Invalid command format: $cmd\")\n      }\n    case _ => println(\"CommandParserActor: Unknown message\")\n  }\n}\n\nobject CommandParserActorApp extends App {\n  val system = ActorSystem(\"CommandParserSystem\")\n  val actor = system.actorOf(Props[CommandParserActor](), \"commandParser\")\n  actor ! \"run:fast\"\n  actor ! \"stop:now\"\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a FeedbackActor in Scala that replies with a feedback message for any input message."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\nclass FeedbackActor extends Actor {\n  def receive: Receive = {\n    case msg => sender() ! s\"FeedbackActor: Received your message: $msg\"\n  }\n}\n\nobject FeedbackActorApp extends App {\n  val system = ActorSystem(\"FeedbackSystem\")\n  val actor = system.actorOf(Props[FeedbackActor](), \"feedbackActor\")\n  actor.tell(\"This is a test\", actor)\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a DataFilterActor in Scala that filters out negative numbers."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\nclass DataFilterActor extends Actor {\n  def receive: Receive = {\n    case n: Int if n >= 0 => println(s\"DataFilterActor: Processing $n\")\n    case n: Int => println(s\"DataFilterActor: Ignoring negative number $n\")\n    case _ => println(\"DataFilterActor: Unknown message\")\n  }\n}\n\nobject DataFilterActorApp extends App {\n  val system = ActorSystem(\"DataFilterSystem\")\n  val actor = system.actorOf(Props[DataFilterActor](), \"dataFilter\")\n  actor ! 10\n  actor ! -5\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a LoggerWithLevelsActor in Scala that logs messages at different levels based on the message prefix ('info:', 'warn:', 'error:')."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\nimport akka.event.Logging\n\nclass LoggerWithLevelsActor extends Actor {\n  val log = Logging(context.system, this)\n  def receive: Receive = {\n    case msg: String if msg.startsWith(\"info:\") => log.info(msg.stripPrefix(\"info:\"))\n    case msg: String if msg.startsWith(\"warn:\") => log.warning(msg.stripPrefix(\"warn:\"))\n    case msg: String if msg.startsWith(\"error:\") => log.error(msg.stripPrefix(\"error:\"))\n    case msg: String => log.debug(s\"Default log: $msg\")\n  }\n}\n\nobject LoggerWithLevelsActorApp extends App {\n  val system = ActorSystem(\"LoggerLevelsSystem\")\n  val actor = system.actorOf(Props[LoggerWithLevelsActor](), \"loggerLevels\")\n  actor ! \"info:This is an info message\"\n  actor ! \"warn:This is a warning\"\n  actor ! \"error:This is an error\"\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a DynamicRouterActor in Scala that routes messages to different child actors based on message type."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorRef, ActorSystem, Props}\n\nclass DynamicRouterActor extends Actor {\n  val intChild: ActorRef = context.actorOf(Props[IntWorker](), \"intChild\")\n  val stringChild: ActorRef = context.actorOf(Props[StringWorker](), \"stringChild\")\n  \n  def receive: Receive = {\n    case i: Int => intChild ! i\n    case s: String => stringChild ! s\n    case _ => println(\"DynamicRouterActor: Unknown message\")\n  }\n}\n\nclass IntWorker extends Actor {\n  def receive: Receive = {\n    case i: Int => println(s\"IntWorker: Received $i\")\n  }\n}\n\nclass StringWorker extends Actor {\n  def receive: Receive = {\n    case s: String => println(s\"StringWorker: Received $s\")\n  }\n}\n\nobject DynamicRouterActorApp extends App {\n  val system = ActorSystem(\"DynamicRouterSystem\")\n  val router = system.actorOf(Props[DynamicRouterActor](), \"dynamicRouter\")\n  router ! 100\n  router ! \"Dynamic routing\"\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a CommandParserActor in Scala that parses a command string and extracts the command and its parameter."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\nclass CommandParserActor extends Actor {\n  def receive: Receive = {\n    case cmd: String =>\n      val parts = cmd.split(\":\")\n      if (parts.length == 2) {\n        println(s\"CommandParserActor: Command = ${parts(0)}, Parameter = ${parts(1)}\")\n      } else {\n        println(s\"CommandParserActor: Invalid command format: $cmd\")\n      }\n    case _ => println(\"CommandParserActor: Unknown message\")\n  }\n}\n\nobject CommandParserActorApp extends App {\n  val system = ActorSystem(\"CommandParserSystem\")\n  val actor = system.actorOf(Props[CommandParserActor](), \"commandParser\")\n  actor ! \"run:fast\"\n  actor ! \"stop:now\"\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a FeedbackActor in Scala that replies with a feedback message for any input message."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\nclass FeedbackActor extends Actor {\n  def receive: Receive = {\n    case msg => sender() ! s\"FeedbackActor: Received your message: $msg\"\n  }\n}\n\nobject FeedbackActorApp extends App {\n  val system = ActorSystem(\"FeedbackSystem\")\n  val actor = system.actorOf(Props[FeedbackActor](), \"feedbackActor\")\n  actor.tell(\"This is a test\", actor)\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a DataFilterActor in Scala that filters out negative integers and only processes non-negative numbers."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\nclass DataFilterActor extends Actor {\n  def receive: Receive = {\n    case n: Int if n >= 0 => println(s\"DataFilterActor: Processing $n\")\n    case n: Int => println(s\"DataFilterActor: Ignoring negative number $n\")\n    case _ => println(\"DataFilterActor: Unknown message\")\n  }\n}\n\nobject DataFilterActorApp extends App {\n  val system = ActorSystem(\"DataFilterSystem\")\n  val actor = system.actorOf(Props[DataFilterActor](), \"dataFilter\")\n  actor ! 10\n  actor ! -5\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a LoggerWithLevelsActor in Scala that logs messages at different levels based on the message prefix ('info:', 'warn:', 'error:')."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\nimport akka.event.Logging\n\nclass LoggerWithLevelsActor extends Actor {\n  val log = Logging(context.system, this)\n  def receive: Receive = {\n    case msg: String if msg.startsWith(\"info:\") => log.info(msg.stripPrefix(\"info:\"))\n    case msg: String if msg.startsWith(\"warn:\") => log.warning(msg.stripPrefix(\"warn:\"))\n    case msg: String if msg.startsWith(\"error:\") => log.error(msg.stripPrefix(\"error:\"))\n    case msg: String => log.debug(s\"Default log: $msg\")\n  }\n}\n\nobject LoggerWithLevelsActorApp extends App {\n  val system = ActorSystem(\"LoggerLevelsSystem\")\n  val actor = system.actorOf(Props[LoggerWithLevelsActor](), \"loggerLevels\")\n  actor ! \"info:This is an info message\"\n  actor ! \"warn:This is a warning\"\n  actor ! \"error:This is an error\"\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a DynamicRouterActor in Scala that routes messages to different child actors based on message type."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorRef, ActorSystem, Props}\n\nclass DynamicRouterActor extends Actor {\n  val intChild: ActorRef = context.actorOf(Props[IntWorker](), \"intChild\")\n  val stringChild: ActorRef = context.actorOf(Props[StringWorker](), \"stringChild\")\n  \n  def receive: Receive = {\n    case i: Int => intChild ! i\n    case s: String => stringChild ! s\n    case _ => println(\"DynamicRouterActor: Unknown message\")\n  }\n}\n\nclass IntWorker extends Actor {\n  def receive: Receive = {\n    case i: Int => println(s\"IntWorker: Received $i\")\n  }\n}\n\nclass StringWorker extends Actor {\n  def receive: Receive = {\n    case s: String => println(s\"StringWorker: Received $s\")\n  }\n}\n\nobject DynamicRouterActorApp extends App {\n  val system = ActorSystem(\"DynamicRouterSystem\")\n  val router = system.actorOf(Props[DynamicRouterActor](), \"dynamicRouter\")\n  router ! 100\n  router ! \"Dynamic routing\"\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a CommandParserActor in Scala that parses a command string and extracts the command and its parameter."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\nclass CommandParserActor extends Actor {\n  def receive: Receive = {\n    case cmd: String =>\n      val parts = cmd.split(\":\")\n      if (parts.length == 2) {\n        println(s\"CommandParserActor: Command = ${parts(0)}, Parameter = ${parts(1)}\")\n      } else {\n        println(s\"CommandParserActor: Invalid command format: $cmd\")\n      }\n    case _ => println(\"CommandParserActor: Unknown message\")\n  }\n}\n\nobject CommandParserActorApp extends App {\n  val system = ActorSystem(\"CommandParserSystem\")\n  val actor = system.actorOf(Props[CommandParserActor](), \"commandParser\")\n  actor ! \"run:fast\"\n  actor ! \"stop:now\"\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a FeedbackActor in Scala that replies with a feedback message for any input message."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\nclass FeedbackActor extends Actor {\n  def receive: Receive = {\n    case msg => sender() ! s\"FeedbackActor: Received your message: $msg\"\n  }\n}\n\nobject FeedbackActorApp extends App {\n  val system = ActorSystem(\"FeedbackSystem\")\n  val actor = system.actorOf(Props[FeedbackActor](), \"feedbackActor\")\n  actor.tell(\"This is a test\", actor)\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a StartupLogActor in Scala that logs a message in preStart to indicate it has started."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\n// StartupLogActor logs a specific message when the actor starts\nclass StartupLogActor extends Actor {\n  // Called when the actor is about to start\n  override def preStart(): Unit = {\n    println(\"StartupLogActor: The actor is starting up!\")\n    super.preStart()\n  }\n\n  def receive: Receive = {\n    case msg => println(s\"StartupLogActor received: $msg\")\n  }\n}\n\nobject StartupLogActorApp extends App {\n  // Create the ActorSystem\n  val system = ActorSystem(\"StartupLogSystem\")\n  // Create the actor\n  val logActor = system.actorOf(Props[StartupLogActor](), \"startupLogger\")\n\n  // Send a test message\n  logActor ! \"Hello World\"\n\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Build a LifecyclePrintActor in Scala that prints a message during postStop to announce its termination."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\n// LifecyclePrintActor prints a message when it's terminated\nclass LifecyclePrintActor extends Actor {\n  // postStop is called after the actor has been stopped\n  override def postStop(): Unit = {\n    println(\"LifecyclePrintActor: The actor has been stopped.\")\n    super.postStop()\n  }\n\n  def receive: Receive = {\n    case msg => println(s\"LifecyclePrintActor received: $msg\")\n  }\n}\n\nobject LifecyclePrintActorApp extends App {\n  val system = ActorSystem(\"LifecyclePrintSystem\")\n  val actor = system.actorOf(Props[LifecyclePrintActor](), \"lifecyclePrinter\")\n\n  actor ! \"Testing lifecycle\"\n\n  // Stop the actor to see postStop in action\n  system.stop(actor)\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a ChildTerminatorActor that spawns a child and then stops the child when it receives 'terminateChild'."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorRef, ActorSystem, Props}\n\n// A trivial child actor that just logs messages\nclass TerminatableChild extends Actor {\n  def receive: Receive = {\n    case msg => println(s\"TerminatableChild received: $msg\")\n  }\n}\n\n// ChildTerminatorActor creates a child and can terminate it on command\nclass ChildTerminatorActor extends Actor {\n  val child: ActorRef = context.actorOf(Props[TerminatableChild](), \"terminatableChild\")\n\n  def receive: Receive = {\n    case \"terminateChild\" =>\n      println(\"ChildTerminatorActor: Terminating child actor.\")\n      context.stop(child)\n    case msg =>\n      child ! msg // forward any other message to the child\n  }\n}\n\nobject ChildTerminatorActorApp extends App {\n  val system = ActorSystem(\"ChildTerminatorSystem\")\n  val parent = system.actorOf(Props[ChildTerminatorActor](), \"parentActor\")\n\n  parent ! \"Hello child\"\n  parent ! \"terminateChild\"\n\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create an AppendStringActor that appends a provided suffix to any incoming string."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\n// AppendStringActor appends a suffix to strings\nclass AppendStringActor(suffix: String) extends Actor {\n  def receive: Receive = {\n    case msg: String =>\n      val updated = msg + suffix\n      println(s\"AppendStringActor: $updated\")\n    case _ => println(\"AppendStringActor: Received non-string message\")\n  }\n}\n\nobject AppendStringActorApp extends App {\n  // Provide a suffix in the constructor\n  val system = ActorSystem(\"AppendStringSystem\")\n  val appender = system.actorOf(Props(new AppendStringActor(\"_SUFFIX\")), \"appender\")\n\n  appender ! \"Hello\"\n  appender ! 123 // Non-string example\n\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Build a CustomMailboxLoggerActor that prints the name of the mailbox it is using, configured externally."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\n// CustomMailboxLoggerActor expects an externally defined mailbox\nclass CustomMailboxLoggerActor extends Actor {\n  override def preStart(): Unit = {\n    println(s\"CustomMailboxLoggerActor using mailbox: ${context.props.mailbox}\")\n    super.preStart()\n  }\n\n  def receive: Receive = {\n    case msg => println(s\"CustomMailboxLoggerActor received: $msg\")\n  }\n}\n\nobject CustomMailboxLoggerActorApp extends App {\n  val system = ActorSystem(\"CustomMailboxLoggerSystem\")\n  // You would define your mailbox config in application.conf\n  val actor = system.actorOf(\n    Props[CustomMailboxLoggerActor]().withMailbox(\"custom-mailbox\"),\n    \"mailboxLogger\"\n  )\n\n  actor ! \"Testing mailbox\"\n  Thread.sleep(500)\n  system.terminate()\n}\n\n// Note: The mailbox must be defined in your configuration, e.g.:\n// akka.actor.mailboxes {\n//   \"custom-mailbox\" {\n//     mailbox-type = \"com.example.CustomMailbox\"\n//   }\n// }\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a PausableActor that stashes messages when paused, and processes them once resumed."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props, Stash}\n\ncase object Pause\ncase object Resume\ncase class Data(value: String)\n\n// PausableActor demonstrates stashing behavior while paused\nclass PausableActor extends Actor with Stash {\n  def receive: Receive = running\n\n  def running: Receive = {\n    case Pause =>\n      println(\"PausableActor: Pausing actor and switching to paused behavior\")\n      context.become(paused)\n    case Data(v) => println(s\"PausableActor: Processing data -> $v\")\n    case _ => println(\"PausableActor: Unknown message\")\n  }\n\n  def paused: Receive = {\n    case Resume =>\n      println(\"PausableActor: Resuming and unstashing messages\")\n      unstashAll()\n      context.become(running)\n    case _ =>\n      println(\"PausableActor: Currently paused, stashing message\")\n      stash()\n  }\n}\n\nobject PausableActorApp extends App {\n  val system = ActorSystem(\"PausableSystem\")\n  val actor = system.actorOf(Props[PausableActor](), \"pausable\")\n\n  actor ! Data(\"Before pause\")\n  actor ! Pause\n  actor ! Data(\"While paused 1\")\n  actor ! Data(\"While paused 2\")\n  actor ! Resume\n  actor ! Data(\"After resume\")\n\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Construct a CountingSupervisor that restarts its child actor up to 3 times, then stops it."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props, OneForOneStrategy, SupervisorStrategy}\nimport akka.actor.SupervisorStrategy.{Restart, Stop}\nimport scala.concurrent.duration._\n\nclass FaultyCounterChild extends Actor {\n  var crashCount = 0\n  def receive: Receive = {\n    case \"explode\" =>\n      crashCount += 1\n      println(s\"FaultyCounterChild: Crashing attempt #$crashCount\")\n      throw new RuntimeException(\"Boom!\")\n    case _ => println(\"FaultyCounterChild: Normal message\")\n  }\n}\n\nclass CountingSupervisor extends Actor {\n  override val supervisorStrategy: SupervisorStrategy = OneForOneStrategy(maxNrOfRetries = 3, withinTimeRange = 1.minute) {\n    case _: RuntimeException => Restart\n  }\n\n  val child = context.actorOf(Props[FaultyCounterChild](), \"faultyChild\")\n\n  def receive: Receive = {\n    case msg => child.forward(msg)\n  }\n}\n\nobject CountingSupervisorApp extends App {\n  val system = ActorSystem(\"CountingSupervisorSystem\")\n  val supervisor = system.actorOf(Props[CountingSupervisor](), \"countingSupervisor\")\n  supervisor ! \"explode\"\n  supervisor ! \"explode\"\n  supervisor ! \"explode\"\n  supervisor ! \"explode\" // The 4th crash should lead to Stop\n\n  Thread.sleep(2000)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Make a MultiResponderActor that responds differently to 'hi', 'bye', and any other message."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\nclass MultiResponderActor extends Actor {\n  def receive: Receive = {\n    case \"hi\" => sender() ! \"Hello!\"\n    case \"bye\" => sender() ! \"Goodbye!\"\n    case msg => sender() ! s\"I don't understand '$msg'\"\n  }\n}\n\nobject MultiResponderActorApp extends App {\n  val system = ActorSystem(\"MultiResponderSystem\")\n  val actor = system.actorOf(Props[MultiResponderActor](), \"multiResponder\")\n  // For demonstration, we can use actor as sender\n  actor.tell(\"hi\", actor)\n  actor.tell(\"bye\", actor)\n  actor.tell(\"something else\", actor)\n\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Write a DeduplicatingActor that remembers the last message and ignores duplicates."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\nclass DeduplicatingActor extends Actor {\n  var lastMessage: Option[Any] = None\n\n  def receive: Receive = {\n    case msg =>\n      if (lastMessage.contains(msg)) {\n        println(s\"DeduplicatingActor: Ignoring duplicate: $msg\")\n      } else {\n        lastMessage = Some(msg)\n        println(s\"DeduplicatingActor: New message received: $msg\")\n      }\n  }\n}\n\nobject DeduplicatingActorApp extends App {\n  val system = ActorSystem(\"DeduplicatingSystem\")\n  val actor = system.actorOf(Props[DeduplicatingActor](), \"deduplicator\")\n  actor ! \"hello\"\n  actor ! \"hello\"\n  actor ! \"world\"\n  actor ! \"world\"\n\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Develop an FSM-based DoorActor that has states: Locked and Unlocked, transitions on Unlock or Lock messages."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{FSM, ActorSystem, Props}\nimport scala.concurrent.duration._\n\n// Door states\nsealed trait DoorState\ncase object Locked extends DoorState\ncase object Unlocked extends DoorState\n\n// Door data (none needed for this simple example)\nsealed trait DoorData\ncase object EmptyData extends DoorData\n\n// Messages\ncase object Lock\ncase object Unlock\n\nclass DoorActor extends FSM[DoorState, DoorData] {\n  startWith(Locked, EmptyData)\n\n  when(Locked) {\n    case Event(Unlock, _) =>\n      println(\"DoorActor: Transitioning from Locked to Unlocked\")\n      goto(Unlocked)\n  }\n\n  when(Unlocked) {\n    case Event(Lock, _) =>\n      println(\"DoorActor: Transitioning from Unlocked to Locked\")\n      goto(Locked)\n  }\n\n  initialize()\n}\n\nobject DoorActorApp extends App {\n  val system = ActorSystem(\"DoorSystem\")\n  val door = system.actorOf(Props[DoorActor](), \"doorActor\")\n\n  door ! Unlock\n  door ! Lock\n  door ! Unlock\n  door ! Lock\n\n  Thread.sleep(1000)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Build a ThrottlingActor that processes only one message per 500 ms, buffering the rest, then processes the buffer next."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props, Stash}\nimport scala.concurrent.duration._\nimport scala.concurrent.ExecutionContext.Implicits.global\n\ncase object ProcessNext\n\nclass ThrottlingActor extends Actor with Stash {\n  var busy = false\n\n  def receive: Receive = {\n    case msg if !busy =>\n      busy = true\n      println(s\"ThrottlingActor: Processing $msg\")\n      context.system.scheduler.scheduleOnce(500.milliseconds, self, ProcessNext)\n    case msg =>\n      println(s\"ThrottlingActor: Stashing $msg while busy\")\n      stash()\n    case ProcessNext =>\n      busy = false\n      println(\"ThrottlingActor: Ready for next message, unstashing.\")\n      unstashAll()\n  }\n}\n\nobject ThrottlingActorApp extends App {\n  val system = ActorSystem(\"ThrottlingSystem\")\n  val actor = system.actorOf(Props[ThrottlingActor](), \"throttler\")\n\n  actor ! \"task1\"\n  actor ! \"task2\"\n  actor ! \"task3\"\n\n  Thread.sleep(2000)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a ParentInitializationActor that sends an Init message to each child upon creation."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorRef, ActorSystem, Props}\n\ncase object Init\n\nclass ChildInitActor extends Actor {\n  def receive: Receive = {\n    case Init => println(s\"ChildInitActor [${self.path.name}] initialized!\")\n    case msg => println(s\"ChildInitActor [${self.path.name}] received: $msg\")\n  }\n}\n\nclass ParentInitializationActor extends Actor {\n  val child1: ActorRef = context.actorOf(Props[ChildInitActor](), \"child1\")\n  val child2: ActorRef = context.actorOf(Props[ChildInitActor](), \"child2\")\n\n  override def preStart(): Unit = {\n    super.preStart()\n    child1 ! Init\n    child2 ! Init\n  }\n\n  def receive: Receive = {\n    case msg =>\n      // Forward to children just as an example\n      child1 ! msg\n      child2 ! msg\n  }\n}\n\nobject ParentInitializationActorApp extends App {\n  val system = ActorSystem(\"ParentInitSystem\")\n  val parent = system.actorOf(Props[ParentInitializationActor](), \"parentInit\")\n  parent ! \"Hello children!\"\n\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Make a SwitchStateActor that uses become to toggle between collecting messages and printing them immediately."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\nimport scala.collection.mutable.ListBuffer\n\ncase object StartCollecting\ncase object StopCollecting\ncase object Dump\ncase class Item(msg: String)\n\nclass SwitchStateActor extends Actor {\n  val buffer = ListBuffer.empty[String]\n\n  def receive: Receive = direct\n\n  def direct: Receive = {\n    case StartCollecting =>\n      println(\"SwitchStateActor: Switching to collection mode\")\n      context.become(collect)\n    case Item(m) => println(s\"Direct mode, printing immediately: $m\")\n    case _ => println(\"SwitchStateActor: Unknown message in direct mode\")\n  }\n\n  def collect: Receive = {\n    case Item(m) =>\n      println(s\"Collect mode, storing message: $m\")\n      buffer += m\n    case StopCollecting =>\n      println(\"SwitchStateActor: Switching back to direct mode\")\n      context.become(direct)\n    case Dump =>\n      println(s\"Collected messages: ${buffer.mkString(\", \")}\")\n      buffer.clear()\n    case _ => println(\"SwitchStateActor: Unknown message in collect mode\")\n  }\n}\n\nobject SwitchStateActorApp extends App {\n  val system = ActorSystem(\"SwitchStateSystem\")\n  val actor = system.actorOf(Props[SwitchStateActor](), \"switchActor\")\n\n  actor ! Item(\"First in direct\")\n  actor ! StartCollecting\n  actor ! Item(\"Col1\")\n  actor ! Item(\"Col2\")\n  actor ! Dump\n  actor ! StopCollecting\n  actor ! Item(\"Back in direct\")\n\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a SortedCollectorActor that collects integer messages, sorts them, and prints them on 'printSorted'."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\ncase object PrintSorted\n\nclass SortedCollectorActor extends Actor {\n  var numbers = List.empty[Int]\n\n  def receive: Receive = {\n    case PrintSorted =>\n      val sorted = numbers.sorted\n      println(s\"SortedCollectorActor: $sorted\")\n    case i: Int =>\n      numbers = i :: numbers\n    case _ => println(\"SortedCollectorActor: Unknown message\")\n  }\n}\n\nobject SortedCollectorActorApp extends App {\n  val system = ActorSystem(\"SortedCollectorSystem\")\n  val actor = system.actorOf(Props[SortedCollectorActor](), \"sortedCollector\")\n\n  actor ! 10\n  actor ! 3\n  actor ! 7\n  actor ! PrintSorted\n\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Construct a WorkerPool with a custom router that routes to workers by hash of the message string."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorRef, ActorSystem, Props}\nimport akka.routing.ConsistentHashingPool\nimport akka.routing.ConsistentHashingRouter.ConsistentHashable\n\ncase class HashTask(msg: String) extends ConsistentHashable {\n  override def consistentHashKey: Any = msg\n}\n\nclass HashWorker extends Actor {\n  def receive: Receive = {\n    case HashTask(m) => println(s\"${self.path.name} processed: $m\")\n  }\n}\n\nobject HashRouterApp extends App {\n  val system = ActorSystem(\"HashRouterSystem\")\n  val router = system.actorOf(\n    ConsistentHashingPool(3).props(Props[HashWorker]()),\n    \"hashRouter\"\n  )\n\n  // Messages that share the same hash key are routed to the same worker\n  router ! HashTask(\"apple\")\n  router ! HashTask(\"banana\")\n  router ! HashTask(\"apple\")\n\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Design a SupervisorEscalateActor that escalates exceptions it doesn't understand to its own supervisor."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props, OneForOneStrategy, SupervisorStrategy}\nimport akka.actor.SupervisorStrategy.{Resume, Escalate}\nimport scala.concurrent.duration._\n\nclass ChildForEscalation extends Actor {\n  def receive: Receive = {\n    case \"resumeError\" => throw new IllegalArgumentException(\"Resume-worthy error\")\n    case \"escalateError\" => throw new UnsupportedOperationException(\"Escalate error\")\n  }\n}\n\nclass SupervisorEscalateActor extends Actor {\n  override val supervisorStrategy: SupervisorStrategy = OneForOneStrategy() {\n    case _: IllegalArgumentException => Resume\n    case _: UnsupportedOperationException => Escalate\n  }\n\n  val child = context.actorOf(Props[ChildForEscalation](), \"escalationChild\")\n\n  def receive: Receive = {\n    case msg => child.forward(msg)\n  }\n}\n\nobject SupervisorEscalateActorApp extends App {\n  val system = ActorSystem(\"EscalationSystem\")\n  val supervisor = system.actorOf(Props[SupervisorEscalateActor](), \"escalateSupervisor\")\n\n  supervisor ! \"resumeError\"\n  supervisor ! \"escalateError\"\n\n  Thread.sleep(1000)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Make a PriorityMailboxExampleActor that uses a priority mailbox: high-priority messages always get processed first."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\nimport com.typesafe.config.ConfigFactory\n\ncase class High(msg: String)\ncase class Low(msg: String)\n\n// PriorityMailboxExampleActor just prints messages in the order it receives them from the mailbox\nclass PriorityMailboxExampleActor extends Actor {\n  def receive: Receive = {\n    case High(m) => println(s\"HIGH PRIORITY: $m\")\n    case Low(m) => println(s\"low priority: $m\")\n  }\n}\n\nobject PriorityMailboxExampleApp extends App {\n  // Normally you'd configure the mailbox in application.conf\n  val config = ConfigFactory.parseString(\n    \"\"\"\n      akka {\n        actor {\n          mailboxes {\n            custom-priority-mailbox {\n              mailbox-type = \"com.example.CustomPriorityMailbox\"\n            }\n          }\n        }\n      }\n    \"\"\"\n  )\n  val system = ActorSystem(\"PriorityMailboxSystem\", config)\n  val actor = system.actorOf(\n    Props[PriorityMailboxExampleActor]().withMailbox(\"custom-priority-mailbox\"),\n    \"priorityExample\"\n  )\n\n  actor ! Low(\"This is low priority\")\n  actor ! High(\"This is high priority\")\n\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Develop an ErrorHandlerActor that catches arithmetic errors in the receive block and logs them."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\nclass ErrorHandlerActor extends Actor {\n  def receive: Receive = {\n    case n: Int =>\n      try {\n        val result = 100 / n\n        println(s\"ErrorHandlerActor: 100 / $n = $result\")\n      } catch {\n        case ex: ArithmeticException => println(s\"ErrorHandlerActor: Arithmetic error: ${ex.getMessage}\")\n      }\n    case _ => println(\"ErrorHandlerActor: Unknown message\")\n  }\n}\n\nobject ErrorHandlerActorApp extends App {\n  val system = ActorSystem(\"ErrorHandlerSystem\")\n  val actor = system.actorOf(Props[ErrorHandlerActor](), \"errorHandler\")\n\n  actor ! 10\n  actor ! 0\n\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Design a TimerTickActor that uses Timers trait to switch from 'tick' to 'tock' every second."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props, Timers}\nimport scala.concurrent.duration._\n\ncase object TickKey\ncase object TickMsg\ncase object TockMsg\n\nclass TimerTickActor extends Actor with Timers {\n  var isTick = true\n\n  // Start periodic timer\n  timers.startPeriodicTimer(TickKey, TickMsg, 1.second)\n\n  def receive: Receive = {\n    case TickMsg =>\n      if (isTick) {\n        println(\"TimerTickActor: Tick\")\n        isTick = false\n      } else {\n        self ! TockMsg\n      }\n    case TockMsg =>\n      println(\"TimerTickActor: Tock\")\n      isTick = true\n  }\n}\n\nobject TimerTickActorApp extends App {\n  val system = ActorSystem(\"TimerTickSystem\")\n  val actor = system.actorOf(Props[TimerTickActor](), \"timerTick\")\n\n  Thread.sleep(5000)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Construct a SupervisorResumeActor that resumes a child on NullPointerException but restarts on IllegalArgumentException."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props, OneForOneStrategy, SupervisorStrategy}\nimport akka.actor.SupervisorStrategy.{Resume, Restart}\nimport scala.concurrent.duration._\n\nclass MixedChild extends Actor {\n  def receive: Receive = {\n    case \"null\" => throw new NullPointerException(\"Null pointer!\")\n    case \"illegal\" => throw new IllegalArgumentException(\"Bad argument!\")\n    case msg => println(s\"MixedChild received: $msg\")\n  }\n}\n\nclass SupervisorResumeActor extends Actor {\n  override val supervisorStrategy = OneForOneStrategy() {\n    case _: NullPointerException => Resume\n    case _: IllegalArgumentException => Restart\n  }\n\n  val child = context.actorOf(Props[MixedChild](), \"mixedChild\")\n\n  def receive: Receive = {\n    case msg => child.forward(msg)\n  }\n}\n\nobject SupervisorResumeActorApp extends App {\n  val system = ActorSystem(\"SupervisorResumeSystem\")\n  val supervisor = system.actorOf(Props[SupervisorResumeActor](), \"supervisor\")\n\n  supervisor ! \"null\"\n  supervisor ! \"illegal\"\n  supervisor ! \"hello\"\n\n  Thread.sleep(1000)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a RollingBufferActor that keeps a buffer of the last N messages and prints them on request."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\ncase object PrintBuffer\ncase class SetSize(n: Int)\n\nclass RollingBufferActor extends Actor {\n  var maxSize = 5\n  var buffer = List.empty[Any]\n\n  def receive: Receive = {\n    case SetSize(n) =>\n      maxSize = n\n      println(s\"RollingBufferActor: maxSize set to $n\")\n    case PrintBuffer =>\n      println(s\"RollingBufferActor: Buffer contents: ${buffer.mkString(\", \")}\")\n    case msg =>\n      buffer = (buffer :+ msg).takeRight(maxSize)\n  }\n}\n\nobject RollingBufferActorApp extends App {\n  val system = ActorSystem(\"RollingBufferSystem\")\n  val actor = system.actorOf(Props[RollingBufferActor](), \"rollingBuffer\")\n\n  actor ! \"msg1\"\n  actor ! \"msg2\"\n  actor ! \"msg3\"\n  actor ! SetSize(2)\n  actor ! \"msg4\"\n  actor ! PrintBuffer\n\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Implement a DelayedEchoActor that echoes messages back after a delay of 300 ms using a scheduler."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\nimport scala.concurrent.duration._\nimport scala.concurrent.ExecutionContext.Implicits.global\n\nclass DelayedEchoActor extends Actor {\n  def receive: Receive = {\n    case msg =>\n      val originalSender = sender()\n      context.system.scheduler.scheduleOnce(300.milliseconds) {\n        originalSender ! s\"Echo after delay: $msg\"\n      }\n  }\n}\n\nobject DelayedEchoActorApp extends App {\n  val system = ActorSystem(\"DelayedEchoSystem\")\n  val actor = system.actorOf(Props[DelayedEchoActor](), \"delayedEcho\")\n\n  // For demonstration, use the actor as sender\n  actor.tell(\"Test message\", actor)\n\n  Thread.sleep(1000)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Build a MergeResultsActor that receives partial results from any number of children, merges them, and prints on 'merge'."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\ncase class Partial(res: String)\ncase object Merge\n\nclass MergeResultsActor extends Actor {\n  var results = List.empty[String]\n\n  def receive: Receive = {\n    case Partial(r) =>\n      results = r :: results\n    case Merge =>\n      println(s\"Merged result: ${results.reverse.mkString(\" + \")}\")\n      results = Nil\n    case _ => println(\"MergeResultsActor: Unknown message\")\n  }\n}\n\nobject MergeResultsActorApp extends App {\n  val system = ActorSystem(\"MergeResultsSystem\")\n  val mergeActor = system.actorOf(Props[MergeResultsActor](), \"mergeActor\")\n\n  mergeActor ! Partial(\"Result1\")\n  mergeActor ! Partial(\"Result2\")\n  mergeActor ! Merge\n\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Construct a DelayedStateActor that transitions from 'idle' to 'active' automatically after 1 second using a scheduler."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\nimport scala.concurrent.duration._\nimport scala.concurrent.ExecutionContext.Implicits.global\n\nclass DelayedStateActor extends Actor {\n  override def preStart(): Unit = {\n    context.system.scheduler.scheduleOnce(1.second, self, \"activate\")\n  }\n\n  def receive: Receive = idle\n\n  def idle: Receive = {\n    case \"activate\" =>\n      println(\"DelayedStateActor: Transitioning to active state\")\n      context.become(active)\n    case _ => println(\"DelayedStateActor (idle): Received message\")\n  }\n\n  def active: Receive = {\n    case msg => println(s\"DelayedStateActor (active): Processing $msg\")\n  }\n}\n\nobject DelayedStateActorApp extends App {\n  val system = ActorSystem(\"DelayedStateSystem\")\n  val actor = system.actorOf(Props[DelayedStateActor](), \"delayedState\")\n\n  actor ! \"Test while idle\"\n  Thread.sleep(1500)\n  actor ! \"Test while active\"\n\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create an AcknowledgingActor that replies with an 'ack' to every message it receives."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\nclass AcknowledgingActor extends Actor {\n  def receive: Receive = {\n    case msg => sender() ! s\"ack: $msg\"\n  }\n}\n\nobject AcknowledgingActorApp extends App {\n  val system = ActorSystem(\"AcknowledgingSystem\")\n  val actor = system.actorOf(Props[AcknowledgingActor](), \"ackActor\")\n\n  actor.tell(\"Hello ack\", actor)\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Design a RotatingFSM that cycles among 3 states: State1, State2, State3, on each 'next' message."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{FSM, ActorSystem, Props}\n\nsealed trait RotateState\ncase object State1 extends RotateState\ncase object State2 extends RotateState\ncase object State3 extends RotateState\n\nsealed trait RotateData\ncase object RotateEmpty extends RotateData\n\ncase object NextState\n\nclass RotatingFSM extends FSM[RotateState, RotateData] {\n  startWith(State1, RotateEmpty)\n\n  when(State1) {\n    case Event(NextState, _) =>\n      println(\"RotatingFSM: Moving from State1 to State2\")\n      goto(State2)\n  }\n  when(State2) {\n    case Event(NextState, _) =>\n      println(\"RotatingFSM: Moving from State2 to State3\")\n      goto(State3)\n  }\n  when(State3) {\n    case Event(NextState, _) =>\n      println(\"RotatingFSM: Moving from State3 to State1\")\n      goto(State1)\n  }\n\n  initialize()\n}\n\nobject RotatingFSMApp extends App {\n  val system = ActorSystem(\"RotatingFSMSystem\")\n  val rotator = system.actorOf(Props[RotatingFSM](), \"rotator\")\n\n  rotator ! NextState\n  rotator ! NextState\n  rotator ! NextState\n  rotator ! NextState\n\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Implement a ListenerActor that subscribes to DeadLetter and logs all dead letters received."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, DeadLetter, Props}\nimport akka.event.Logging\n\nclass DeadLetterListener extends Actor {\n  val log = Logging(context.system, this)\n\n  def receive: Receive = {\n    case DeadLetter(msg, from, to) =>\n      log.warning(s\"DeadLetter caught: $msg from $from to $to\")\n  }\n}\n\nobject ListenerActorApp extends App {\n  val system = ActorSystem(\"ListenerSystem\")\n  val listener = system.actorOf(Props[DeadLetterListener](), \"deadLetterListener\")\n\n  // Subscribe to dead letters\n  system.eventStream.subscribe(listener, classOf[DeadLetter])\n\n  // Attempt to send a message to a non-existent actor\n  system.actorSelection(\"/user/NoSuchActor\") ! \"Hello?\"\n\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Write a NameStashActor that stashes messages until it receives a 'SetName' message, then logs them with the name."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props, Stash}\n\ncase class SetName(name: String)\n\nclass NameStashActor extends Actor with Stash {\n  var currentName: Option[String] = None\n\n  def receive: Receive = {\n    case SetName(n) =>\n      currentName = Some(n)\n      println(s\"NameStashActor: Name set to $n, unstashing messages.\")\n      unstashAll()\n      context.become(named)\n    case msg =>\n      println(\"NameStashActor: Stashing until name is set.\")\n      stash()\n  }\n\n  def named: Receive = {\n    case SetName(n) =>\n      currentName = Some(n)\n      println(s\"NameStashActor: Updated name to $n\")\n    case msg =>\n      println(s\"NameStashActor [${currentName.get}]: Processing $msg\")\n  }\n}\n\nobject NameStashActorApp extends App {\n  val system = ActorSystem(\"NameStashSystem\")\n  val actor = system.actorOf(Props[NameStashActor](), \"nameStash\")\n\n  actor ! \"Msg1\"\n  actor ! \"Msg2\"\n  actor ! SetName(\"Alice\")\n  actor ! \"Msg3\"\n  actor ! SetName(\"Bob\")\n  actor ! \"Msg4\"\n\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Design a ValueTrackerActor that starts at an integer value and increments or decrements on commands."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\ncase object Inc\ncase object Dec\n\nclass ValueTrackerActor(start: Int) extends Actor {\n  var current = start\n\n  def receive: Receive = {\n    case Inc =>\n      current += 1\n      println(s\"ValueTrackerActor: Value is now $current\")\n    case Dec =>\n      current -= 1\n      println(s\"ValueTrackerActor: Value is now $current\")\n    case _ => println(\"ValueTrackerActor: Unknown message\")\n  }\n}\n\nobject ValueTrackerActorApp extends App {\n  val system = ActorSystem(\"ValueTrackerSystem\")\n  val tracker = system.actorOf(Props(new ValueTrackerActor(10)), \"tracker\")\n\n  tracker ! Inc\n  tracker ! Dec\n\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Construct a ProxyActor that holds a reference to a 'real' actor and forwards all messages to it."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\nclass RealActor extends Actor {\n  def receive: Receive = {\n    case msg => println(s\"RealActor processing: $msg\")\n  }\n}\n\nclass ProxyActor(real: akka.actor.ActorRef) extends Actor {\n  def receive: Receive = {\n    case msg =>\n      println(s\"ProxyActor: Forwarding $msg to real actor\")\n      real.forward(msg)\n  }\n}\n\nobject ProxyActorApp extends App {\n  val system = ActorSystem(\"ProxySystem\")\n  val realActor = system.actorOf(Props[RealActor](), \"real\")\n  val proxy = system.actorOf(Props(new ProxyActor(realActor)), \"proxy\")\n\n  proxy ! \"Hello through proxy\"\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Build a ConfigCheckActor that reads two config values and logs them in preStart."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\nclass ConfigCheckActor extends Actor {\n  val config = context.system.settings.config\n  val value1 = config.getString(\"myapp.value1\")\n  val value2 = config.getString(\"myapp.value2\")\n\n  override def preStart(): Unit = {\n    println(s\"ConfigCheckActor starting. value1=$value1, value2=$value2\")\n    super.preStart()\n  }\n\n  def receive: Receive = {\n    case _ => println(\"ConfigCheckActor: Received message\")\n  }\n}\n\nobject ConfigCheckActorApp extends App {\n  // Ensure application.conf has myapp.value1 and myapp.value2\n  val system = ActorSystem(\"ConfigCheckSystem\")\n  val actor = system.actorOf(Props[ConfigCheckActor](), \"configChecker\")\n\n  actor ! \"test\"\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Make a WeightedRandomRouter that randomly sends messages to 3 workers, with different weights."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\nimport akka.routing.SmallestMailboxPool\n\ncase class WeightedTask(task: String)\n\nclass WeightedWorker(id: Int) extends Actor {\n  def receive: Receive = {\n    case WeightedTask(t) => println(s\"WeightedWorker-$id handling task: $t\")\n  }\n}\n\nobject WeightedRandomRouterApp extends App {\n  val system = ActorSystem(\"WeightedRandomRouterSystem\")\n\n  // For a real weighted random approach, you'd implement a custom router.\n  // Here, we'll just demonstrate a smallest mailbox pool as a placeholder.\n  val router = system.actorOf(SmallestMailboxPool(3).props(Props(classOf[WeightedWorker], 0)), \"weightedRouter\")\n\n  router ! WeightedTask(\"Task A\")\n  router ! WeightedTask(\"Task B\")\n  router ! WeightedTask(\"Task C\")\n\n  Thread.sleep(500)\n  system.terminate()\n}\n\n// Note: For true weighted routing, you would use a custom router logic or an external library.\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Construct a PrintOnceActor that only prints the first message it sees, ignoring the rest."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\nclass PrintOnceActor extends Actor {\n  var printed = false\n\n  def receive: Receive = {\n    case msg if !printed =>\n      println(s\"PrintOnceActor: First message is $msg\")\n      printed = true\n    case _ => // do nothing\n  }\n}\n\nobject PrintOnceActorApp extends App {\n  val system = ActorSystem(\"PrintOnceSystem\")\n  val actor = system.actorOf(Props[PrintOnceActor](), \"printOnce\")\n\n  actor ! \"Message1\"\n  actor ! \"Message2\"\n  actor ! \"Message3\"\n\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Design a StickyRoundRobinActor that cycles through a list of recipients, sending each new message to the next actor."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorRef, ActorSystem, Props}\n\ncase class Recipients(list: List[ActorRef])\n\nclass StickyRoundRobinActor extends Actor {\n  var recipients: List[ActorRef] = Nil\n  var index = 0\n\n  def receive: Receive = {\n    case Recipients(list) =>\n      recipients = list\n      println(\"StickyRoundRobinActor: Recipients updated\")\n    case msg =>\n      if (recipients.nonEmpty) {\n        recipients(index) ! msg\n        index = (index + 1) % recipients.size\n      } else {\n        println(\"StickyRoundRobinActor: No recipients to route to\")\n      }\n  }\n}\n\nclass PrintTargetActor(id: Int) extends Actor {\n  def receive: Receive = {\n    case msg => println(s\"PrintTargetActor-$id received: $msg\")\n  }\n}\n\nobject StickyRoundRobinActorApp extends App {\n  val system = ActorSystem(\"StickyRoundRobinSystem\")\n\n  val target1 = system.actorOf(Props(new PrintTargetActor(1)), \"target1\")\n  val target2 = system.actorOf(Props(new PrintTargetActor(2)), \"target2\")\n  val target3 = system.actorOf(Props(new PrintTargetActor(3)), \"target3\")\n\n  val roundRobin = system.actorOf(Props[StickyRoundRobinActor](), \"roundRobin\")\n  roundRobin ! Recipients(List(target1, target2, target3))\n\n  roundRobin ! \"Alpha\"\n  roundRobin ! \"Beta\"\n  roundRobin ! \"Gamma\"\n  roundRobin ! \"Delta\"\n\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Implement a ReverseStringActor that reverses any string it receives and logs the reversed output."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props}\n\nclass ReverseStringActor extends Actor {\n  def receive: Receive = {\n    case s: String =>\n      val reversed = s.reverse\n      println(s\"ReverseStringActor: $s reversed is $reversed\")\n    case _ => println(\"ReverseStringActor: Unknown message\")\n  }\n}\n\nobject ReverseStringActorApp extends App {\n  val system = ActorSystem(\"ReverseStringSystem\")\n  val actor = system.actorOf(Props[ReverseStringActor](), \"reverseActor\")\n\n  actor ! \"Akka\"\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Write a OneTimeSchedulerActor that schedules a single 'reminder' message to itself after a short delay, then ignores further attempts."
+      },
+      {
+        "from": "assistant",
+        "value": "import akka.actor.{Actor, ActorSystem, Props, Cancellable}\nimport scala.concurrent.duration._\nimport scala.concurrent.ExecutionContext.Implicits.global\n\nclass OneTimeSchedulerActor extends Actor {\n  var scheduled: Option[Cancellable] = None\n\n  def receive: Receive = {\n    case \"schedule\" if scheduled.isEmpty =>\n      println(\"OneTimeSchedulerActor: Scheduling a one-time reminder\")\n      scheduled = Some(context.system.scheduler.scheduleOnce(1.second, self, \"reminder\"))\n    case \"schedule\" =>\n      println(\"OneTimeSchedulerActor: Already scheduled, ignoring.\")\n    case \"reminder\" =>\n      println(\"OneTimeSchedulerActor: Reminder triggered!\")\n    case _ => println(\"OneTimeSchedulerActor: Unknown message\")\n  }\n}\n\nobject OneTimeSchedulerActorApp extends App {\n  val system = ActorSystem(\"OneTimeSchedulerSystem\")\n  val actor = system.actorOf(Props[OneTimeSchedulerActor](), \"oneTimer\")\n\n  actor ! \"schedule\"\n  Thread.sleep(500)\n  actor ! \"schedule\" // This will be ignored because it's already scheduled\n\n  Thread.sleep(2000)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a simple HelloWorld typed actor using akka-actor-typed, with a Behavior that logs messages."
+      },
+      {
+        "from": "assistant",
+        "value": "// HelloWorldTyped.scala\n\nimport akka.actor.typed.scaladsl.Behaviors\nimport akka.actor.typed.{ActorSystem, Behavior}\n\nobject HelloWorldTyped {\n  // Define messages\n  final case class Greet(name: String)\n\n  // Define the behavior\n  def apply(): Behavior[Greet] = Behaviors.receive { (context, message) =>\n    context.log.info(s\"Hello, ${message.name} from typed actor!\")\n    Behaviors.same\n  }\n}\n\nobject HelloWorldTypedApp extends App {\n  // Create the ActorSystem for our typed actor\n  val system = ActorSystem(HelloWorldTyped(), \"HelloWorldTypedSystem\")\n\n  // Send a message\n  system ! HelloWorldTyped.Greet(\"Akka Typed\")\n\n  // Give it a moment, then terminate\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Demonstrate a typed actor that changes its behavior upon a 'switch' message, using context.become in typed style."
+      },
+      {
+        "from": "assistant",
+        "value": "// SwitchBehaviorTyped.scala\n\nimport akka.actor.typed.scaladsl.{Behaviors, ActorContext}\nimport akka.actor.typed.{ActorSystem, Behavior}\n\nobject SwitchBehaviorTyped {\n  sealed trait Command\n  case object Switch extends Command\n  case class Message(content: String) extends Command\n\n  // Behavior A logs as \"Mode A\"; Behavior B logs as \"Mode B\"\n  def modeA: Behavior[Command] = Behaviors.receive { (context, msg) =>\n    msg match {\n      case Switch =>\n        context.log.info(\"Switching from Mode A to Mode B.\")\n        modeB\n      case Message(text) =>\n        context.log.info(s\"Mode A received: $text\")\n        Behaviors.same\n      case _ => Behaviors.same\n    }\n  }\n\n  def modeB: Behavior[Command] = Behaviors.receive { (context, msg) =>\n    msg match {\n      case Switch =>\n        context.log.info(\"Switching from Mode B to Mode A.\")\n        modeA\n      case Message(text) =>\n        context.log.info(s\"Mode B received: $text\")\n        Behaviors.same\n      case _ => Behaviors.same\n    }\n  }\n\n  // Start in modeA\n  def apply(): Behavior[Command] = modeA\n}\n\nobject SwitchBehaviorTypedApp extends App {\n  import SwitchBehaviorTyped._\n\n  val system = ActorSystem(SwitchBehaviorTyped(), \"SwitchBehaviorTypedSystem\")\n  system ! Message(\"Hello in A\")\n  system ! Switch\n  system ! Message(\"Now in B\")\n  system ! Switch\n  system ! Message(\"Back to A\")\n\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Show how to create a typed actor that uses Behaviors.withTimers to schedule a periodic Tick message and log it."
+      },
+      {
+        "from": "assistant",
+        "value": "// TimerTypedActor.scala\n\nimport akka.actor.typed.scaladsl.{Behaviors, TimerScheduler}\nimport akka.actor.typed.{ActorSystem, Behavior}\nimport scala.concurrent.duration._\n\nobject TimerTypedActor {\n  sealed trait Command\n  private case object TickKey\n  case object Tick extends Command\n\n  def apply(): Behavior[Command] = Behaviors.withTimers { (timers: TimerScheduler[Command]) =>\n    // Schedule a periodic Tick every 1 second\n    timers.startTimerWithFixedDelay(TickKey, Tick, 1.second)\n\n    Behaviors.receive { (context, message) =>\n      message match {\n        case Tick =>\n          context.log.info(\"TimerTypedActor: TICK\")\n          Behaviors.same\n      }\n    }\n  }\n}\n\nobject TimerTypedActorApp extends App {\n  val system = ActorSystem(TimerTypedActor(), \"TimerTypedSystem\")\n  Thread.sleep(3000)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Show a simple example of an Akka Streams Source that emits numbers from 1 to 5 and prints them to the console."
+      },
+      {
+        "from": "assistant",
+        "value": "// SimpleAkkaStream.scala\n\nimport akka.actor.ActorSystem\nimport akka.stream.scaladsl.{Sink, Source}\n\nobject SimpleAkkaStreamApp extends App {\n  implicit val system: ActorSystem = ActorSystem(\"SimpleStreamSystem\")\n\n  // A source of integers 1 to 5\n  val source = Source(1 to 5)\n\n  // Print each element to the console\n  val sink = Sink.foreach[Int](num => println(s\"Stream element: $num\"))\n\n  // Run the stream\n  source.runWith(sink)\n\n  Thread.sleep(1000)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create an example of Akka HTTP server that responds with 'Hello from Akka HTTP' to any GET request on /hello."
+      },
+      {
+        "from": "assistant",
+        "value": "// SimpleAkkaHttpServer.scala\n\nimport akka.actor.ActorSystem\nimport akka.http.scaladsl.Http\nimport akka.http.scaladsl.server.Directives._\nimport akka.http.scaladsl.server.Route\nimport akka.stream.ActorMaterializer\nimport scala.concurrent.ExecutionContextExecutor\nimport scala.io.StdIn\n\nobject SimpleAkkaHttpServer extends App {\n  implicit val system: ActorSystem = ActorSystem(\"AkkaHttpSystem\")\n  implicit val dispatcher: ExecutionContextExecutor = system.dispatcher\n  implicit val materializer: ActorMaterializer = ActorMaterializer()(system)\n\n  val route: Route =\n    path(\"hello\") {\n      get {\n        complete(\"Hello from Akka HTTP\")\n      }\n    }\n\n  val bindingFuture = Http().bindAndHandle(route, \"localhost\", 8080)\n  println(\"Server online at http://localhost:8080/hello\\nPress RETURN to stop...\")\n  StdIn.readLine() // Wait for user input to stop\n\n  bindingFuture\n    .flatMap(_.unbind())\n    .onComplete(_ => system.terminate())\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create an example typed actor that uses a standard typed Supervision strategy (restart on any exception)."
+      },
+      {
+        "from": "assistant",
+        "value": "// TypedSupervisionExample.scala\n\nimport akka.actor.typed.{ActorSystem, Behavior, SupervisorStrategy}\nimport akka.actor.typed.scaladsl.Behaviors\nimport scala.concurrent.duration._\n\nobject FaultyTypedBehavior {\n  sealed trait Command\n  case object Fail extends Command\n\n  def apply(): Behavior[Command] = Behaviors.receive { (context, message) =>\n    message match {\n      case Fail =>\n        context.log.info(\"FaultyTypedBehavior: Throwing exception!\")\n        throw new RuntimeException(\"Failure!\")\n    }\n  }\n}\n\nobject SupervisedTypedBehavior {\n  import FaultyTypedBehavior._\n\n  def apply(): Behavior[Command] = Behaviors.supervise(FaultyTypedBehavior())\n    .onFailure[RuntimeException](SupervisorStrategy.restart.withLimit(maxNrOfRetries = 3, withinTimeRange = 1.second))\n}\n\nobject TypedSupervisionExampleApp extends App {\n  val system = ActorSystem(SupervisedTypedBehavior(), \"TypedSupervisionSystem\")\n\n  system ! FaultyTypedBehavior.Fail\n  system ! FaultyTypedBehavior.Fail\n  system ! FaultyTypedBehavior.Fail\n\n  Thread.sleep(2000)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Illustrate a typed actor Behavior that uses onSignal to handle a PostStop signal."
+      },
+      {
+        "from": "assistant",
+        "value": "// TypedOnSignalExample.scala\n\nimport akka.actor.typed.scaladsl.Behaviors\nimport akka.actor.typed.{ActorSystem, Behavior, PostStop}\n\nobject OnSignalActor {\n  sealed trait Command\n  case object StopMe extends Command\n\n  def apply(): Behavior[Command] = Behaviors.setup { context =>\n    Behaviors.receiveMessage[Command] {\n      case StopMe =>\n        context.log.info(\"Received StopMe, stopping...\")\n        Behaviors.stopped\n    }.receiveSignal {\n      case (ctx, PostStop) =>\n        ctx.log.info(\"OnSignalActor: PostStop signal received.\")\n        Behaviors.same\n    }\n  }\n}\n\nobject TypedOnSignalExampleApp extends App {\n  val system = ActorSystem(OnSignalActor(), \"OnSignalSystem\")\n\n  system ! OnSignalActor.StopMe\n\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Build a typed actor that acts as an HTTP client using Akka HTTP, fetching data from a public API and logging the response."
+      },
+      {
+        "from": "assistant",
+        "value": "// TypedHttpClientActor.scala\n\nimport akka.actor.typed.scaladsl.{Behaviors, ActorContext}\nimport akka.actor.typed.{ActorSystem, Behavior}\nimport akka.http.scaladsl.Http\nimport akka.http.scaladsl.model.HttpRequest\nimport akka.http.scaladsl.unmarshalling.Unmarshal\nimport akka.stream.Materializer\nimport scala.concurrent.ExecutionContext\n\nobject HttpClientActor {\n  sealed trait Command\n  case object FetchData extends Command\n\n  def apply(): Behavior[Command] = Behaviors.setup { context =>\n    implicit val classicSystem = context.system.classicSystem\n    implicit val ec: ExecutionContext = context.executionContext\n    implicit val mat: Materializer = Materializer(classicSystem)\n\n    Behaviors.receiveMessage {\n      case FetchData =>\n        val responseF = Http()(classicSystem).singleRequest(HttpRequest(uri = \"https://jsonplaceholder.typicode.com/posts/1\"))\n        responseF.foreach { response =>\n          Unmarshal(response.entity).to[String].foreach { body =>\n            context.log.info(s\"HTTP response body: $body\")\n          }\n        }\n        Behaviors.same\n    }\n  }\n}\n\nobject TypedHttpClientActorApp extends App {\n  val system = ActorSystem(HttpClientActor(), \"TypedHttpClientSystem\")\n\n  system ! HttpClientActor.FetchData\n\n  Thread.sleep(3000)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a typed actor system that uses config from application.conf to log custom settings on startup."
+      },
+      {
+        "from": "assistant",
+        "value": "// ConfigLoggingTyped.scala\n\nimport akka.actor.typed.scaladsl.Behaviors\nimport akka.actor.typed.{ActorSystem, Behavior}\n\nobject ConfigLoggingTyped {\n  sealed trait Command\n  case object PrintConfig extends Command\n\n  def apply(): Behavior[Command] = Behaviors.setup { context =>\n    val someSetting = context.system.settings.config.getString(\"custom.setting\")\n    context.log.info(s\"Actor started with custom.setting = $someSetting\")\n\n    Behaviors.receiveMessage {\n      case PrintConfig =>\n        context.log.info(s\"Current config says: $someSetting\")\n        Behaviors.same\n    }\n  }\n}\n\nobject ConfigLoggingTypedApp extends App {\n  // In application.conf, define: custom.setting = \"Hello Config\"\n  val system = ActorSystem(ConfigLoggingTyped(), \"ConfigLoggingSystem\")\n  system ! ConfigLoggingTyped.PrintConfig\n\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Demonstrate a typed cluster with a receptionist-based service discovery, where a 'PingService' registers itself and 'Client' finds it."
+      },
+      {
+        "from": "assistant",
+        "value": "// TypedClusterReceptionistExample.scala\n\nimport akka.actor.typed.scaladsl.{Behaviors, ActorContext}\nimport akka.actor.typed.{ActorRef, ActorSystem, Behavior}\nimport akka.cluster.typed.{Cluster, SelfUp, Subscribe}\nimport akka.actor.typed.receptionist.{Receptionist, ServiceKey}\n\nobject PingService {\n  val PingKey = ServiceKey[PingCommand](\"PingService\")\n\n  sealed trait PingCommand\n  case class Ping(replyTo: ActorRef[String]) extends PingCommand\n\n  def apply(): Behavior[PingCommand] = Behaviors.setup { ctx =>\n    // Register this service\n    ctx.system.receptionist ! Receptionist.Register(PingKey, ctx.self)\n\n    Behaviors.receiveMessage {\n      case Ping(replyTo) =>\n        replyTo ! \"Pong\"\n        Behaviors.same\n    }\n  }\n}\n\nobject Client {\n  import PingService._\n\n  sealed trait Command\n  case object FindPingService extends Command\n  case class WrappedListing(listing: Receptionist.Listing) extends Command\n\n  def apply(): Behavior[Command] = Behaviors.setup { ctx =>\n    val listingAdapter = ctx.messageAdapter[Receptionist.Listing](WrappedListing)\n\n    Behaviors.receiveMessage {\n      case FindPingService =>\n        ctx.system.receptionist ! Receptionist.Find(PingKey, listingAdapter)\n        Behaviors.same\n      case WrappedListing(PingService.PingKey.Listing(listings)) =>\n        listings.foreach { pingRef =>\n          ctx.log.info(\"Found PingService, sending Ping...\")\n          pingRef ! Ping(ctx.messageAdapter[String](rsp => {\n            ctx.log.info(s\"Received: $rsp\")\n            FindPingService // or some other next action\n          }))\n        }\n        Behaviors.same\n    }\n  }\n}\n\nobject TypedClusterReceptionistExampleApp extends App {\n  val system = ActorSystem(Behaviors.setup[Nothing] { ctx =>\n    ctx.spawn(PingService(), \"PingActor\")\n    val client = ctx.spawn(Client(), \"ClientActor\")\n    client ! Client.FindPingService\n    Behaviors.empty\n  }, \"ReceptionistCluster\")\n\n  Thread.sleep(5000)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a typed actor cluster example that uses a cluster aware router to send messages to typed actors on different nodes."
+      },
+      {
+        "from": "assistant",
+        "value": "// TypedClusterAwareRouterExample.scala\n// Note: Akka 2.6+ uses group or pool routers, but typed cluster-based routing often requires custom approach.\n\nimport akka.actor.typed.scaladsl.Behaviors\nimport akka.actor.typed.{ActorRef, ActorSystem, Behavior}\nimport akka.cluster.typed.{Cluster, SelfUp, Subscribe}\nimport akka.actor.typed.receptionist.{Receptionist, ServiceKey}\n\nobject Worker {\n  val WorkerKey = ServiceKey[Command](\"WorkerService\")\n\n  sealed trait Command\n  case class Work(payload: String) extends Command\n\n  def apply(): Behavior[Command] = Behaviors.setup { ctx =>\n    // Register with receptionist\n    ctx.system.receptionist ! Receptionist.Register(WorkerKey, ctx.self)\n\n    Behaviors.receiveMessage {\n      case Work(payload) =>\n        ctx.log.info(s\"Processing work: $payload on ${ctx.self.path}\")\n        Behaviors.same\n    }\n  }\n}\n\nobject Router {\n  import Worker._\n  sealed trait RouterCommand\n  case class Dispatch(payload: String) extends RouterCommand\n  private case class ListingResponse(listing: Receptionist.Listing) extends RouterCommand\n\n  def apply(): Behavior[RouterCommand] = Behaviors.setup { ctx =>\n    val adapter = ctx.messageAdapter[Receptionist.Listing](ListingResponse)\n    ctx.system.receptionist ! Receptionist.Subscribe(Worker.WorkerKey, adapter)\n\n    var workers = Set.empty[ActorRef[Worker.Command]]\n\n    Behaviors.receiveMessage {\n      case ListingResponse(Worker.WorkerKey.Listing(newWorkers)) =>\n        workers = newWorkers\n        ctx.log.info(s\"Router: Updated worker set: $workers\")\n        Behaviors.same\n      case Dispatch(payload) =>\n        // Simple round-robin or random approach\n        workers.headOption.foreach(ref => ref ! Work(payload))\n        Behaviors.same\n    }\n  }\n}\n\nobject TypedClusterAwareRouterExampleApp extends App {\n  val system = ActorSystem(Behaviors.setup[Nothing] { ctx =>\n    // Spawn a worker and a router\n    ctx.spawn(Worker(), \"worker1\")\n    val router = ctx.spawn(Router(), \"router\")\n\n    // After a short delay, dispatch some work\n    ctx.scheduleOnce(scala.concurrent.duration.DurationInt(2).seconds, router, Router.Dispatch(\"some cluster work\"))\n\n    Behaviors.empty\n  }, \"ClusterAwareRouter\")\n\n  Thread.sleep(10000)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create an example of an Akka Streams Flow that capitalizes strings, used between a Source of strings and a Sink that logs them."
+      },
+      {
+        "from": "assistant",
+        "value": "// CapitalizeFlowExample.scala\n\nimport akka.actor.ActorSystem\nimport akka.stream.ActorMaterializer\nimport akka.stream.scaladsl.{Flow, Sink, Source}\nimport scala.concurrent.ExecutionContextExecutor\n\nobject CapitalizeFlowExample extends App {\n  implicit val system: ActorSystem = ActorSystem(\"CapFlowSystem\")\n  implicit val ec: ExecutionContextExecutor = system.dispatcher\n  implicit val mat: ActorMaterializer = ActorMaterializer()(system)\n\n  val source = Source(List(\"hello\", \"akka\", \"streams\"))\n\n  // Flow that transforms strings to uppercase\n  val capitalizeFlow = Flow[String].map(_.toUpperCase)\n\n  val sink = Sink.foreach[String](s => println(s\"Got: $s\"))\n\n  val runnable = source.via(capitalizeFlow).to(sink)\n  runnable.run()\n\n  Thread.sleep(1000)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Create a typed Streams example that uses a RestartSource to automatically restart on failures."
+      },
+      {
+        "from": "assistant",
+        "value": "// RestartSourceExample.scala\n\nimport akka.actor.ActorSystem\nimport akka.stream.ActorMaterializer\nimport akka.stream.scaladsl.{RestartSource, Sink, Source}\nimport scala.concurrent.duration._\nimport scala.concurrent.ExecutionContextExecutor\nimport scala.util.Random\n\nobject RestartSourceExample extends App {\n  implicit val system: ActorSystem = ActorSystem(\"RestartSourceSystem\")\n  implicit val ec: ExecutionContextExecutor = system.dispatcher\n  implicit val mat: ActorMaterializer = ActorMaterializer()(system)\n\n  val failingSource = Source(1 to 10).map { n =>\n    if (Random.nextBoolean()) n else throw new RuntimeException(\"Random fail!\")\n  }\n\n  val restarting = RestartSource.onFailuresWithBackoff(\n    minBackoff = 1.second,\n    maxBackoff = 5.seconds,\n    randomFactor = 0.2\n  ) { () => failingSource }\n\n  val done = restarting.runWith(Sink.foreach(elem => println(s\"Got element: $elem\")))\n\n  done.onComplete(_ => system.terminate())\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Demonstrate an Akka Streams example that uses a Broadcast to split the flow into two parallel consumers."
+      },
+      {
+        "from": "assistant",
+        "value": "// BroadcastStreamExample.scala\n\nimport akka.actor.ActorSystem\nimport akka.stream.{ActorMaterializer, ClosedShape}\nimport akka.stream.scaladsl.{Broadcast, GraphDSL, Sink, Source}\nimport scala.concurrent.ExecutionContextExecutor\n\nobject BroadcastStreamExample extends App {\n  implicit val system: ActorSystem = ActorSystem(\"BroadcastStreamSystem\")\n  implicit val ec: ExecutionContextExecutor = system.dispatcher\n  implicit val mat: ActorMaterializer = ActorMaterializer()(system)\n\n  val source = Source(1 to 5)\n  val sink1 = Sink.foreach[Int](x => println(s\"Sink1 got: $x\"))\n  val sink2 = Sink.foreach[Int](x => println(s\"Sink2 got: $x\"))\n\n  val graph = akka.stream.scaladsl.RunnableGraph.fromGraph(GraphDSL.create() { implicit builder =>\n    import GraphDSL.Implicits._\n\n    val broadcast = builder.add(Broadcast[Int](2))\n\n    source ~> broadcast.in\n    broadcast.out(0) ~> sink1\n    broadcast.out(1) ~> sink2\n\n    ClosedShape\n  })\n\n  graph.run()\n\n  Thread.sleep(1000)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Show an example typed actor that, on a 'startHttpServer' message, spins up a minimal Akka HTTP server, then logs requests."
+      },
+      {
+        "from": "assistant",
+        "value": "// TypedActorHttpServerOnDemand.scala\n\nimport akka.actor.typed.scaladsl.Behaviors\nimport akka.actor.typed.{ActorSystem, Behavior}\nimport akka.http.scaladsl.Http\nimport akka.http.scaladsl.server.Directives._\nimport akka.http.scaladsl.model.StatusCodes\nimport akka.stream.Materializer\nimport scala.concurrent.ExecutionContext\nimport scala.util.{Failure, Success}\n\nobject OnDemandHttpActor {\n  sealed trait Command\n  case object StartHttpServer extends Command\n\n  def apply(): Behavior[Command] = Behaviors.setup { context =>\n    implicit val classicSystem = context.system.classicSystem\n    implicit val mat: Materializer = Materializer(classicSystem)\n    implicit val ec: ExecutionContext = context.executionContext\n\n    val route = path(\"test\") {\n      get {\n        context.log.info(\"Request on /test\")\n        complete(StatusCodes.OK -> \"Hello from typed actor!\")\n      }\n    }\n\n    Behaviors.receiveMessage {\n      case StartHttpServer =>\n        val bindingFuture = Http()(classicSystem).newServerAt(\"localhost\", 9000).bind(route)\n        bindingFuture.onComplete {\n          case Success(binding) => context.log.info(s\"HTTP server running at ${binding.localAddress}\")\n          case Failure(ex) => context.log.error(s\"Failed to bind HTTP server: ${ex.getMessage}\")\n        }\n        Behaviors.same\n    }\n  }\n}\n\nobject TypedActorHttpServerOnDemandApp extends App {\n  val system = ActorSystem(OnDemandHttpActor(), \"OnDemandHttpSystem\")\n  system ! OnDemandHttpActor.StartHttpServer\n\n  Thread.sleep(30000)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Use Akka HTTP client in a typed actor to post JSON data to a server, showing how to construct the request entity."
+      },
+      {
+        "from": "assistant",
+        "value": "// TypedHttpPostActor.scala\n\nimport akka.actor.typed.scaladsl.Behaviors\nimport akka.actor.typed.{ActorSystem, Behavior}\nimport akka.http.scaladsl.Http\nimport akka.http.scaladsl.model._\nimport akka.http.scaladsl.model.ContentTypes.`application/json`\nimport akka.stream.Materializer\nimport scala.concurrent.ExecutionContext\nimport scala.util.{Failure, Success}\n\nobject HttpPostActor {\n  sealed trait Command\n  case object SendPost extends Command\n\n  def apply(): Behavior[Command] = Behaviors.setup { context =>\n    implicit val classicSystem = context.system.classicSystem\n    implicit val mat: Materializer = Materializer(classicSystem)\n    implicit val ec: ExecutionContext = context.executionContext\n\n    val jsonString = \"\"\"{\"some\": \"data\"}\"\"\"\n    val entity = HttpEntity(`application/json`, jsonString)\n\n    Behaviors.receiveMessage {\n      case SendPost =>\n        val responseF = Http()(classicSystem).singleRequest(HttpRequest(\n          method = HttpMethods.POST,\n          uri = \"https://httpbin.org/post\",\n          entity = entity\n        ))\n        responseF.onComplete {\n          case Success(res) => context.log.info(s\"Response status: ${res.status}\")\n          case Failure(ex) => context.log.error(s\"Failed: ${ex.getMessage}\")\n        }\n        Behaviors.same\n    }\n  }\n}\n\nobject TypedHttpPostActorApp extends App {\n  val system = ActorSystem(HttpPostActor(), \"HttpPostSystem\")\n  system ! HttpPostActor.SendPost\n\n  Thread.sleep(3000)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Build a typed Streams example that merges multiple sources, then filters out even numbers, and prints the rest."
+      },
+      {
+        "from": "assistant",
+        "value": "// MergeFilterStreamTyped.scala\n\nimport akka.actor.ActorSystem\nimport akka.stream.ActorMaterializer\nimport akka.stream.scaladsl.{Merge, Sink, Source}\nimport scala.concurrent.ExecutionContextExecutor\n\nobject MergeFilterStreamTyped extends App {\n  implicit val system: ActorSystem = ActorSystem(\"MergeFilterSystem\")\n  implicit val ec: ExecutionContextExecutor = system.dispatcher\n  implicit val mat: ActorMaterializer = ActorMaterializer()(system)\n\n  val source1 = Source(1 to 3)\n  val source2 = Source(4 to 6)\n\n  val merged = Source.combine(source1, source2)(Merge(_))\n  val filtered = merged.filter(_ % 2 != 0)\n\n  val sink = Sink.foreach[Int](n => println(s\"Odd number: $n\"))\n\n  filtered.runWith(sink)\n\n  Thread.sleep(1000)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Show a typed streams example with a custom Graph stage that doubles incoming integers."
+      },
+      {
+        "from": "assistant",
+        "value": "// DoubleFlowGraphStageExample.scala\n\nimport akka.actor.ActorSystem\nimport akka.stream.{ActorMaterializer, Attributes, FlowShape, Inlet, Outlet}\nimport akka.stream.stage.{GraphStage, GraphStageLogic, InHandler, OutHandler}\nimport akka.stream.scaladsl.{Keep, RunnableGraph, Sink, Source}\nimport scala.concurrent.ExecutionContextExecutor\n\nclass DoublingStage extends GraphStage[FlowShape[Int, Int]] {\n  val in: Inlet[Int] = Inlet(\"DoublingStage.in\")\n  val out: Outlet[Int] = Outlet(\"DoublingStage.out\")\n\n  override val shape: FlowShape[Int, Int] = FlowShape(in, out)\n\n  override def createLogic(inheritedAttributes: Attributes): GraphStageLogic = new GraphStageLogic(shape) {\n    setHandler(in, new InHandler {\n      override def onPush(): Unit = {\n        val elem = grab(in)\n        push(out, elem * 2)\n      }\n    })\n\n    setHandler(out, new OutHandler {\n      override def onPull(): Unit = pull(in)\n    })\n  }\n}\n\nobject DoubleFlowGraphStageExample extends App {\n  implicit val system: ActorSystem = ActorSystem(\"DoubleGraphStageSystem\")\n  implicit val ec: ExecutionContextExecutor = system.dispatcher\n  implicit val mat: ActorMaterializer = ActorMaterializer()(system)\n\n  val source = Source(1 to 5)\n  val doublingFlow = new DoublingStage\n  val sink = Sink.foreach[Int](x => println(s\"Doubled: $x\"))\n\n  val runnable = source.via(doublingFlow).toMat(sink)(Keep.right)\n  runnable.run()\n\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Make a typed cluster Singleton that manages a GCounter via distributed data, demonstrating a single node responsible for updates."
+      },
+      {
+        "from": "assistant",
+        "value": "// TypedClusterSingletonGCounter.scala\n\nimport akka.actor.typed.scaladsl.Behaviors\nimport akka.actor.typed.{ActorRef, ActorSystem, Behavior}\nimport akka.cluster.typed.{ClusterSingleton, SingletonActor}\nimport akka.cluster.ddata.GCounter\nimport akka.cluster.ddata.typed.scaladsl.{DistributedData, Replicator}\nimport akka.cluster.ddata.{GCounterKey}\nimport akka.actor.typed.scaladsl.adapter._\n\nobject GCounterSingleton {\n  sealed trait Command\n  case object Increment extends Command\n  private case class InternalUpdate(rsp: Replicator.UpdateResponse[GCounter]) extends Command\n\n  private val Key = GCounterKey(\"singletonGCounter\")\n\n  def apply(): Behavior[Command] = Behaviors.setup { ctx =>\n    val replicator = DistributedData(ctx.system).replicator\n    implicit val node = DistributedData(ctx.system).selfUniqueAddress\n\n    Behaviors.receiveMessage {\n      case Increment =>\n        replicator ! Replicator.Update(Key, GCounter.empty, Replicator.WriteLocal, ctx.messageAdapter(InternalUpdate)) {\n          _.increment(node, 1)\n        }\n        Behaviors.same\n      case InternalUpdate(rsp) =>\n        ctx.log.info(s\"Update response: $rsp\")\n        Behaviors.same\n    }\n  }\n}\n\nobject TypedClusterSingletonGCounterApp extends App {\n  val system = ActorSystem(Behaviors.empty, \"SingletonGCounterCluster\")\n\n  val singletonManager = ClusterSingleton(system)\n  val singletonRef = singletonManager.init(\n    SingletonActor(\n      GCounterSingleton(),\n      \"GCounterSingleton\"\n    )\n  )\n\n  // Send increments to the singleton\n  singletonRef ! GCounterSingleton.Increment\n  singletonRef ! GCounterSingleton.Increment\n\n  Thread.sleep(3000)\n  system.terminate()\n}\n"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Human: Provide an example of a typed actor that uses a stash for typed messages, stashing until a 'ready' command is received."
+      },
+      {
+        "from": "assistant",
+        "value": "// TypedStashExample.scala\n\nimport akka.actor.typed.scaladsl.{Behaviors, StashBuffer}\nimport akka.actor.typed.{ActorSystem, Behavior}\n\nobject StashActor {\n  sealed trait Command\n  case object Ready extends Command\n  case class Payload(msg: String) extends Command\n\n  def apply(): Behavior[Command] = Behaviors.withStash(10) { buffer =>\n    Behaviors.setup { context =>\n\n      def unstashedBehavior: Behavior[Command] = Behaviors.receiveMessage {\n        case Payload(m) =>\n          context.log.info(s\"Processing payload: $m\")\n          Behaviors.same\n        case Ready =>\n          context.log.info(\"Already in ready state.\")\n          Behaviors.same\n      }\n\n      // Initially not ready\n      val initial: Behavior[Command] = Behaviors.receiveMessage {\n        case Ready =>\n          context.log.info(\"Becoming ready, unstashing messages.\")\n          buffer.unstashAll(unstashedBehavior)\n        case other =>\n          context.log.info(\"Stashing message until we get Ready.\")\n          buffer.stash(other)\n          Behaviors.same\n      }\n\n      initial\n    }\n  }\n}\n\nobject TypedStashExampleApp extends App {\n  val system = ActorSystem(StashActor(), \"StashSystem\")\n\n  system ! StashActor.Payload(\"msg1\")\n  system ! StashActor.Payload(\"msg2\")\n  system ! StashActor.Ready\n  system ! StashActor.Payload(\"msg3\")\n\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+      }
+    ]
   }
 ]

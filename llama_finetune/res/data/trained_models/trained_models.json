@@ -130,5 +130,38 @@
       "successful_runs": 6,
       "total_snippets": 17
     }
+  },
+  {
+    "model_hash": "679d0fd382ea1d2b13c6a60ca96a401286faf2f19b3f5b00410a50d44321c2eb",
+    "timestamp": "2025-02-11T15:09:44.013776",
+    "batch_size": 4,
+    "gradient_accumulation_steps": 4,
+    "learning_rate": 0.0002,
+    "num_train_epochs": 5,
+    "max_steps": 60,
+    "warmup_steps": 5,
+    "optimizer": "adamw_8bit",
+    "weight_decay": 0.01,
+    "lr_scheduler": "linear",
+    "lora_rank": 64,
+    "lora_alpha": 512,
+    "lora_dropout": 0,
+    "target_modules": [
+      "q_proj",
+      "k_proj",
+      "v_proj",
+      "o_proj",
+      "gate_proj",
+      "up_proj",
+      "down_proj"
+    ],
+    "use_gradient_checkpointing": "unsloth",
+    "train_dataset_size": 90,
+    "test_dataset_size": 17,
+    "avg_bleu": 0.3995381578839862,
+    "execution_check": {
+      "successful_runs": 8,
+      "total_snippets": 17
+    }
   }
 ]

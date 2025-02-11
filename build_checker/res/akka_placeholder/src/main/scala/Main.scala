@@ -1,34 +1,48 @@
-import akka.actor.{Actor, ActorSystem, Props}
+// TypedStashExample.scala
 
-// Message to increment the counter
-case object Increment
+import akka.actor.typed.scaladsl.{Behaviors, StashBuffer}
+import akka.actor.typed.{ActorSystem, Behavior}
 
-// Actor that keeps track of how many increments it has seen
-class CountingActor extends Actor {
-  // Internal counter, starts at zero
-  private var count = 0
+object StashActor {
+  sealed trait Command
+  case object Ready extends Command
+  case class Payload(msg: String) extends Command
 
-  def receive: Receive = {
-    // If we get Increment, increase count and log it
-    case Increment =>
-      count += 1
-      println(s"CountingActor: Count is now $count")
-    // If unknown message, log that it's unknown
-    case _ =>
-      println("CountingActor: Received unknown message.")
+  def apply(): Behavior[Command] = Behaviors.withStash(10) { buffer =>
+    Behaviors.setup { context =>
+
+      def unstashedBehavior: Behavior[Command] = Behaviors.receiveMessage {
+        case Payload(m) =>
+          context.log.info(s"Processing payload: $m")
+          Behaviors.same
+        case Ready =>
+          context.log.info("Already in ready state.")
+          Behaviors.same
+      }
+
+      // Initially not ready
+      val initial: Behavior[Command] = Behaviors.receiveMessage {
+        case Ready =>
+          context.log.info("Becoming ready, unstashing messages.")
+          buffer.unstashAll(unstashedBehavior)
+        case other =>
+          context.log.info("Stashing message until we get Ready.")
+          buffer.stash(other)
+          Behaviors.same
+      }
+
+      initial
+    }
   }
 }
 
-object CountingActorApp extends App {
-  // Create an ActorSystem named "CountingSystem"
-  val system = ActorSystem("CountingSystem")
-  // Create an instance of CountingActor
-  val counter = system.actorOf(Props[CountingActor](), "counter")
+object TypedStashExampleApp extends App {
+  val system = ActorSystem(StashActor(), "StashSystem")
 
-  // Send multiple increments
-  counter ! Increment
-  counter ! Increment
-  counter ! Increment
+  system ! StashActor.Payload("msg1")
+  system ! StashActor.Payload("msg2")
+  system ! StashActor.Ready
+  system ! StashActor.Payload("msg3")
 
   Thread.sleep(500)
   system.terminate()
