@@ -76,6 +76,7 @@ class BuildCheckerAPI:
 
         with open(self.main_scala_path, "w") as f:
             f.write(code)
+            logger.info(f"Wrote code to {self.main_scala_path}")
 
         if build:
             build_success, build_msg = self.build_project()
@@ -90,6 +91,7 @@ class BuildCheckerAPI:
             if not success and idx is not None and prompt is not None:
                 logger.error(f"Run failed for idx: {idx}")
                 logger.error(f"Prompt: {prompt}")
+                logger.error(f"Run output: {msg}")
             return success, msg
 
         return True, "Code written successfully"

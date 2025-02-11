@@ -2,18 +2,31 @@ import hashlib
 import json
 import os
 import sys
+import logging
 from pathlib import Path
 from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QLabel, QPushButton, 
     QCheckBox, QApplication, QFileDialog, QTextEdit
 )
 
+# Configure logging
+logger = logging.getLogger("BuildCheckerLogger")
+logger.setLevel(logging.INFO)
+
+# Create console handler with custom formatter
+console_handler = logging.StreamHandler()
+formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s", "%Y-%m-%d %H:%M:%S")
+console_handler.setFormatter(formatter)
+logger.addHandler(console_handler)
+
+# Prevent log propagation to avoid duplicate logs
+logger.propagate = False
 
 # Get the root directory of the project
 ROOT_DIR = Path(__file__).parent.parent.parent
 sys.path.append(str(ROOT_DIR))
 
-from build_checker.build_checker.log.logger import logger
+from api import BuildCheckerAPI
 
 hash_file_path = "res/config/processed_hashes.json"
 current_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -84,15 +97,6 @@ def save_failing_snippets(failing_snippets, failing_snippets_path):
     logger.info(f"Saved {len(failing_snippets)} failing snippets.")
 
 def process_snippets(dataset, build_flag, run_flag, use_hashes=False, on_working_snippet=None):
-    """Process code snippets with optional hash checking.
-    
-    Args:
-        dataset: The dataset to process
-        build_flag (bool): Whether to build the project
-        run_flag (bool): Whether to run the project
-        use_hashes (bool): Whether to use hash checking to skip processed items
-        on_working_snippet (callable): Optional callback for working snippets
-    """
     if dataset is None:
         logger.error("No dataset file provided. Stopping further processing.")
         return
@@ -101,60 +105,36 @@ def process_snippets(dataset, build_flag, run_flag, use_hashes=False, on_working
     successful_runs = 0
     total_snippets = 0
     failing_snippets = []
+    api = BuildCheckerAPI()
 
     # Iterate over each conversation
     for idx, conversation in enumerate(dataset):
-        assistant_messages, human_prompts = get_prompt_and_code(conversation)
+        assistant_messages, human_prompts = api._get_prompt_and_code(conversation)
 
         for code, human_prompt in zip(assistant_messages, human_prompts):
             total_snippets += 1
-            # Compute the hash of the current pair to check if it has already been processed
             current_hash = compute_hash(human_prompt, code)
             if use_hashes and current_hash in processed_hashes:
-                logger.info(f"Skipping already processed pair at index {idx}.")
                 continue
 
-            logger.debug("Path of scala file: " + main_scala_path)
-
-            with open(main_scala_path, "w") as scala_file:
-                scala_file.write(code)
-
-            logger.info(f"Wrote code to {main_scala_path}")
-
-            # Build the Scala project (and don't run log anything particular)
-            if build_flag:
-                build_project(output_directory)
-
-            # Run the Scala project and log the result
-            if run_flag:
-                run_status, run_output = run_project(output_directory)
-                if run_status:
-                    logger.info(f"Run successful for conversation idx: {idx}")
-                    successful_runs += 1
-                    if on_working_snippet:
-                        on_working_snippet(idx, human_prompt, code)
-                else:
-                    # Extract error cause from run output
-                    error_lines = run_output.strip().split('\n')
-                    error_cause = error_lines[-1] if error_lines else "Unknown error"
-                    
-                    logger.error(f"Run failed for idx: {idx}")
-                    logger.error(f"Prompt: {human_prompt}")
-                    logger.error(f"Run output: {run_output}")
-                    logger.error(f"Error cause: {error_cause}")
-                    
-                    failing_snippets.append({
-                        "idx": idx,
-                        "prompt": human_prompt, 
-                        "code": code,
-                        "error_output": run_output,
-                        "error_cause": error_cause
-                    })
+            success, error_msg = api.test_single_snippet(code, build_flag, run_flag, idx=idx, prompt=human_prompt)
+            
+            if success:
+                successful_runs += 1
+                if on_working_snippet:
+                    on_working_snippet(idx, human_prompt, code)
+            else:
+                failing_snippets.append({
+                    "idx": idx,
+                    "prompt": human_prompt,
+                    "code": code,
+                    "error_output": error_msg,
+                    "error_cause": error_msg.split('\n')[-1] if error_msg else "Unknown error"
+                })
 
             if use_hashes:
                 processed_hashes.add(current_hash)
                 save_processed_hashes(processed_hashes, hash_file_path)
-            logger.info(f"Conversation idx: {idx+1} processed successfully.")
 
     save_failing_snippets(failing_snippets, failing_snippets_path)
     logger.info(f"{successful_runs}/{total_snippets} snippets ran successfully.")

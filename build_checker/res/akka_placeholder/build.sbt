@@ -24,9 +24,19 @@ lazy val root = project
       // Akka Streams for stream processing integration
       "com.typesafe.akka" %% "akka-stream" % "2.8.2",
       
-      // Akka Actor Classic (useful for context.become and other classic APIs)\n      "com.typesafe.akka" %% "akka-actor" % "2.8.2",
+      // Akka Actor Classic (useful for context.become and other classic APIs)\n      
+      "com.typesafe.akka" %% "akka-actor" % "2.8.2",
       
-      // SLF4J logging support for Akka\n      "com.typesafe.akka" %% "akka-slf4j" % "2.8.2",
+      // SLF4J logging support for Akka\n      
+      "com.typesafe.akka" %% "akka-slf4j" % "2.8.2",
+
+      // Akka Distributed Data for CRDT support
+      "com.typesafe.akka" %% "akka-distributed-data" % "2.8.2",
+
+      // Akka Http for HTTP server and client integration
+      "com.typesafe.akka" %% "akka-http" % "10.5.2",
+
+      "ch.qos.logback" % "logback-classic" % "1.2.11"
       
       // Typesafe Config for configuration management\n      "com.typesafe" % "config" % "1.4.2"
     )

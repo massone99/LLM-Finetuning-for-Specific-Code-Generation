@@ -25,3 +25,6 @@ target/
 .history
 
 llama_finetune/llama_finetune/outputs/*
+
+# Ignore log files
+**/*.log
