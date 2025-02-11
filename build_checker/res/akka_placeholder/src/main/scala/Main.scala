@@ -1,43 +1,51 @@
-// StdinStreamTyped.scala
-// This example reads lines from standard input using a stream and prints each line.
+import akka.actor.{Actor, ActorRef, ActorSystem, Props, OneForOneStrategy, SupervisorStrategy}
+import akka.actor.SupervisorStrategy.{Resume, Escalate}
+import scala.concurrent.duration._
 
-import akka.actor.typed.scaladsl.Behaviors
-import akka.actor.typed.{ActorSystem, Behavior}
-import akka.stream.scaladsl.{Framing, Sink, StreamConverters}
-import akka.util.ByteString
-import akka.stream.SystemMaterializer
-import scala.concurrent.ExecutionContext
-import akka.{Done, NotUsed}
-import scala.concurrent.Future
+// Define the FaultyChildActor
+class FaultyChildActor extends Actor {
+  def receive: Receive = {
+    case "causeNull" =>
+      println("FaultyChildActor: Throwing NullPointerException...")
+      throw new NullPointerException("Null pointer exception.")
+    case msg => println(s"FaultyChildActor: Received -> $msg")
+  }
+}
 
-object StdinStreamApp extends App {
-  // Create a simple root behavior that sets up the stream
-  val root: Behavior[Nothing] = Behaviors.setup[Nothing] { context =>
-    implicit val mat = SystemMaterializer(context.system).materializer
-    implicit val ec: ExecutionContext = context.executionContext
-
-    // Create a source from System.in
-    val source: Source[String, NotUsed] = StreamConverters.fromInputStream(() => System.in)
-      .via(
-        Framing.delimiter(
-          ByteString("\n"),         // Use ByteString for the newline delimiter
-          maximumFrameLength = 256,
-          allowTruncation = true
-        )
-      )
-      .map(_.utf8String)             // Convert bytes to UTF-8 string
-
-    // Sink that prints each line
-    val sink: Sink[String, Future[Done]] = Sink.foreach(line => println(s"You typed: $line"))
-
-    // Run the stream
-    val done: Future[Done] = source.runWith(sink)
-    done.onComplete { _ =>
-      context.system.terminate()
-    }
-
-    Behaviors.empty
+// Define the EscalatingSupervisor
+class EscalatingSupervisor extends Actor {
+  override val supervisorStrategy: SupervisorStrategy = OneForOneStrategy(
+    maxNrOfRetries = 3,
+    withinTimeRange = 1.minute
+  ) {
+    case _: NullPointerException =>
+      println("EscalatingSupervisor: Escalating supervisor strategy due to NullPointerException.")
+      Resume
+    case _ =>
+      println("EscalatingSupervisor: Escalating failure with another strategy.")
+      Escalate
   }
 
-  val system = ActorSystem(root, "StdinStreamSystem")
+  // Create the child actor
+  val child: ActorRef = context.actorOf(Props[FaultyChildActor](), "faultyChild")
+
+  def receive: Receive = {
+    case msg => child.forward(msg)
+  }
+}
+
+// Usage Example (for testing purposes)
+object EscalationHierarchyApp extends App {
+  val system = ActorSystem("EscalationHierarchySystem")
+
+  val supervisor = system.actorOf(Props[EscalatingSupervisor](), "escalatingSupervisor")
+
+  // Send messages to the child actor
+  supervisor! "Hello Child"
+  supervisor! "causeNull"   // Should trigger NullPointerException and escalate
+  supervisor! "After Escalation"
+
+  // Allow some time for processing before shutdown
+  Thread.sleep(2000)
+  system.terminate()
 }

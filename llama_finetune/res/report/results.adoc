@@ -1,15 +1,15 @@
 
 == 
-Evaluation Results (loaded_finetuned_trainsize90):
+Evaluation Results (loaded_finetuned_trainsize261):
 
 
 === 
-Average BLEU Score: 0.3995
+Average BLEU Score: 0.3813
 
  
-Detailed results saved to: ../res/data/results/evaluation_results_loaded_finetuned_trainsize90_20250211.json
+Detailed results saved to: ../res/data/results/evaluation_results_loaded_finetuned_trainsize261_20250211.json
 
- Generated code samples saved to: ../res/data/generated_code/loaded_finetuned_trainsize90
+ Generated code samples saved to: ../res/data/generated_code/loaded_finetuned_trainsize261
 
 
 === Processing dataset inline...
@@ -18,5 +18,5 @@ Detailed results saved to: ../res/data/results/evaluation_results_loaded_finetun
 
 
 === 
-Running examples: 8/17
+Running examples: 11/17
 
