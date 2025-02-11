@@ -372,22 +372,6 @@ def main():
         print(f"Warning: Could not determine training dataset size: {e}")
         train_dataset_size = None
 
-<<<<<<< HEAD
-    try:
-        if args.load_model:
-            process_loaded_model(args, model, output_dir, tokenizer, train_dataset_size)
-        elif args.grid_search:
-            best_params = execute_grid_search(args, model, tokenizer, max_seq_length, train_dataset_size)
-            save_grid_search_results(output_dir, best_params)
-        else:
-            process_trained_model(
-                args, max_seq_length, model, output_dir, tokenizer,
-                train_dataset_size, PEFT_PARAMS, TRAINING_PARAMS
-            )
-    except Exception as e:
-        print(f"Error during execution: {str(e)}")
-        raise
-=======
     if args.load_model:
         process_loaded_model(args, model, output_dir, tokenizer, train_dataset_size)
     else:
@@ -397,7 +381,6 @@ def main():
         # evaluate_model(
         #     model, tokenizer, args.test_dataset_path, train_dataset_size, "before_finetuning"
         # )
->>>>>>> 866d533 (feat: added grid search for finetuning of the model)
 
         # Grid search implementation
         combinations = get_grid_combinations()
