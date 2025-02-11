@@ -1,4 +1,79 @@
 from unsloth import is_bfloat16_supported
+from itertools import product
+
+# Grid search configurations - ridotto per testare solo 10 combinazioni
+GRID_SEARCH_PARAMS = {
+    'peft': {
+        'r': [32, 64],  # LoRA rank values - entrambi hanno mostrato buoni risultati
+        'lora_alpha': [128, 512],  # 128: good performance, 512: best performance
+    },
+    'training': {
+        'per_device_train_batch_size': [4],  # 4: good balance
+        'num_train_epochs': [3, 5],  # Test both shorter and longer training
+        'learning_rate': [1e-4, 2e-4],  # Test both conservative and aggressive learning
+    }
+}
+
+def get_grid_combinations():
+    """Generate all combinations for grid search"""
+    peft_keys = GRID_SEARCH_PARAMS['peft'].keys()
+    training_keys = GRID_SEARCH_PARAMS['training'].keys()
+    
+    peft_values = [GRID_SEARCH_PARAMS['peft'][k] for k in peft_keys]
+    training_values = [GRID_SEARCH_PARAMS['training'][k] for k in training_keys]
+    
+    peft_combinations = list(product(*peft_values))
+    training_combinations = list(product(*training_values))
+    
+    all_combinations = []
+    for p_combo in peft_combinations:
+        for t_combo in training_combinations:
+            peft_dict = dict(zip(peft_keys, p_combo))
+            training_dict = dict(zip(training_keys, t_combo))
+            all_combinations.append((peft_dict, training_dict))
+    
+    return all_combinations
+
+# Base PEFT parameters
+BASE_PEFT_PARAMS = {
+    "target_modules": [
+        "q_proj", "k_proj", "v_proj", "o_proj",
+        "gate_proj", "up_proj", "down_proj",
+    ],
+    "lora_dropout": 0,
+    "bias": "none",
+    "use_gradient_checkpointing": "unsloth",
+    "random_state": 3407,
+    "use_rslora": False,
+    "loftq_config": None,
+}
+
+# Base training parameters
+BASE_TRAINING_PARAMS = {
+    "gradient_accumulation_steps": 4,
+    "warmup_steps": 5,
+    "max_steps": 60,
+    "fp16": not is_bfloat16_supported(),
+    "bf16": is_bfloat16_supported(),
+    "logging_steps": 1,
+    "optim": "adamw_8bit",
+    "weight_decay": 0.01,
+    "lr_scheduler_type": "linear",
+    "seed": 3407,
+    "report_to": "none",
+}
+
+def get_peft_params(peft_updates):
+    """Merge base PEFT params with updates"""
+    params = BASE_PEFT_PARAMS.copy()
+    params.update(peft_updates)
+    return params
+
+def get_training_params(training_updates):
+    """Merge base training params with updates"""
+    params = BASE_TRAINING_PARAMS.copy()
+    params.update(training_updates)
+    return params
 
 # PEFT (Parameter-Efficient Fine-Tuning) parameters - results gathered from experiments
 PEFT_PARAMS = {

@@ -1,7 +1,106 @@
 [
   {
-    "model_hash": "5a16d7fe271460383c675d0b03c3e1809a29becb3a5376b4d5f8497df85ec8f4",
-    "timestamp": "2025-02-10T12:29:14.188625",
+    "model_hash": "365382550e2fffde0fec761872520e295e89579226a8ddfbc43d7d4a853fac63",
+    "timestamp": "2025-02-10T20:04:19.586499",
+    "batch_size": 4,
+    "gradient_accumulation_steps": 4,
+    "learning_rate": 0.0001,
+    "num_train_epochs": 3,
+    "max_steps": 60,
+    "warmup_steps": 5,
+    "optimizer": "adamw_8bit",
+    "weight_decay": 0.01,
+    "lr_scheduler": "linear",
+    "lora_rank": 64,
+    "lora_alpha": 512,
+    "lora_dropout": 0,
+    "target_modules": [
+      "q_proj",
+      "k_proj",
+      "v_proj",
+      "o_proj",
+      "gate_proj",
+      "up_proj",
+      "down_proj"
+    ],
+    "use_gradient_checkpointing": "unsloth",
+    "train_dataset_size": 48,
+    "test_dataset_size": 17,
+    "avg_bleu": 0.36521638352329167,
+    "execution_check": {
+      "successful_runs": 7,
+      "total_snippets": 17
+    }
+  },
+  {
+    "model_hash": "bdf0fe128a6c3fd55f71760b3a62db1a14f2517c7b4e4213245de4f8bbbbb0a2",
+    "timestamp": "2025-02-10T20:20:39.099183",
+    "batch_size": 4,
+    "gradient_accumulation_steps": 4,
+    "learning_rate": 0.0002,
+    "num_train_epochs": 3,
+    "max_steps": 60,
+    "warmup_steps": 5,
+    "optimizer": "adamw_8bit",
+    "weight_decay": 0.01,
+    "lr_scheduler": "linear",
+    "lora_rank": 64,
+    "lora_alpha": 512,
+    "lora_dropout": 0,
+    "target_modules": [
+      "q_proj",
+      "k_proj",
+      "v_proj",
+      "o_proj",
+      "gate_proj",
+      "up_proj",
+      "down_proj"
+    ],
+    "use_gradient_checkpointing": "unsloth",
+    "train_dataset_size": 48,
+    "test_dataset_size": 17,
+    "avg_bleu": 0.344853467871843,
+    "execution_check": {
+      "successful_runs": 6,
+      "total_snippets": 17
+    }
+  },
+  {
+    "model_hash": "40c91d5e925f9a4be332e56bca07cbedf79b316fde8ed7f239a1f5a4b0e551f8",
+    "timestamp": "2025-02-10T20:36:42.788124",
+    "batch_size": 4,
+    "gradient_accumulation_steps": 4,
+    "learning_rate": 0.0001,
+    "num_train_epochs": 5,
+    "max_steps": 60,
+    "warmup_steps": 5,
+    "optimizer": "adamw_8bit",
+    "weight_decay": 0.01,
+    "lr_scheduler": "linear",
+    "lora_rank": 64,
+    "lora_alpha": 512,
+    "lora_dropout": 0,
+    "target_modules": [
+      "q_proj",
+      "k_proj",
+      "v_proj",
+      "o_proj",
+      "gate_proj",
+      "up_proj",
+      "down_proj"
+    ],
+    "use_gradient_checkpointing": "unsloth",
+    "train_dataset_size": 48,
+    "test_dataset_size": 17,
+    "avg_bleu": 0.36646531300650387,
+    "execution_check": {
+      "successful_runs": 5,
+      "total_snippets": 17
+    }
+  },
+  {
+    "model_hash": "93f21c7bb4eb1a930a6b828e2b8c65d54dd461ac40b3eee753ee526ae5bf82ca",
+    "timestamp": "2025-02-10T20:52:32.148711",
     "batch_size": 4,
     "gradient_accumulation_steps": 4,
     "learning_rate": 0.0002,
@@ -24,12 +123,12 @@
       "down_proj"
     ],
     "use_gradient_checkpointing": "unsloth",
-    "train_dataset_size": 45,
+    "train_dataset_size": 48,
     "test_dataset_size": 17,
-    "avg_bleu": 0.3836559787978527,
+    "avg_bleu": 0.3740348238820349,
     "execution_check": {
-      "successful_runs": 7,
-      "total_snippets": 34
+      "successful_runs": 6,
+      "total_snippets": 17
     }
   }
 ]
