@@ -3,11 +3,11 @@
     "conversations": [
       {
         "from": "human",
-        "value": "Create a simple HelloWorld typed actor using akka-actor-typed, with a Behavior that logs messages."
+        "value": "Typed Cluster Example: Give an example of a typed cluster where each node logs 'Cluster member up' upon joining the cluster."
       },
       {
         "from": "assistant",
-        "value": "// HelloWorldTyped.scala\n\nimport akka.actor.typed.scaladsl.Behaviors\nimport akka.actor.typed.{ActorSystem, Behavior}\n\nobject HelloWorldTyped {\n  // Define messages\n  final case class Greet(name: String)\n\n  // Define the behavior\n  def apply(): Behavior[Greet] = Behaviors.receive { (context, message) =>\n    context.log.info(s\"Hello, ${message.name} from typed actor!\")\n    Behaviors.same\n  }\n}\n\nobject HelloWorldTypedApp extends App {\n  // Create the ActorSystem for our typed actor\n  val system = ActorSystem(HelloWorldTyped(), \"HelloWorldTypedSystem\")\n\n  // Send a message\n  system ! HelloWorldTyped.Greet(\"Akka Typed\")\n\n  // Give it a moment, then terminate\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+        "value": "// TypedClusterExample.scala\n// This example subscribes to all cluster events using the typed API and logs when a member is marked as Up.\n\nimport akka.actor.typed.scaladsl.Behaviors\nimport akka.actor.typed.{ActorSystem, Behavior}\n// Import cluster events from the proper package\nimport akka.cluster.typed.ClusterEvent.{MemberEvent, MemberUp, MemberRemoved}\nimport akka.cluster.typed.{Cluster, Subscribe}\n\nobject TypedClusterExample {\n  // Define a protocol for our cluster listener\n  sealed trait Command\n  private final case class WrappedMemberEvent(event: MemberEvent) extends Command\n\n  def apply(): Behavior[Command] = Behaviors.setup { context =>\n    // Obtain the Cluster instance from the typed ActorSystem\n    val cluster = Cluster(context.system)\n\n    // Create a message adapter that wraps MemberEvent into our Command\n    val memberEventAdapter = context.messageAdapter[MemberEvent](WrappedMemberEvent(_))\n\n    // Subscribe to all cluster events (MemberUp, MemberRemoved, etc.)\n    cluster.subscriptions ! Subscribe(memberEventAdapter, classOf[MemberEvent])\n\n    // Process incoming wrapped events\n    Behaviors.receiveMessage {\n      case WrappedMemberEvent(MemberUp(member)) =>\n        context.log.info(s\"Cluster member is Up: ${member.address}\")\n        Behaviors.same\n      case WrappedMemberEvent(MemberRemoved(member, previousStatus)) =>\n        context.log.info(s\"Cluster member removed: ${member.address} (was $previousStatus)\")\n        Behaviors.same\n      case WrappedMemberEvent(event) =>\n        context.log.info(s\"Other cluster event: $event\")\n        Behaviors.same\n    }\n  }\n}\n\nobject TypedClusterExampleApp extends App {\n  // In a real cluster, you would start multiple ActorSystems on different ports\n  val system: ActorSystem[TypedClusterExample.Command] = ActorSystem(TypedClusterExample(), \"MyCluster\")\n  Thread.sleep(10000) // Allow time for cluster events to be logged\n  system.terminate()\n}\n"
       }
     ]
   },
@@ -15,11 +15,11 @@
     "conversations": [
       {
         "from": "human",
-        "value": "Demonstrate a typed actor that changes its behavior upon a 'switch' message, using context.become in typed style."
+        "value": "Typed Persistence Example: Create a typed persistence actor that stores and retrieves a counter state."
       },
       {
         "from": "assistant",
-        "value": "// SwitchBehaviorTyped.scala\n\nimport akka.actor.typed.scaladsl.{Behaviors, ActorContext}\nimport akka.actor.typed.{ActorSystem, Behavior}\n\nobject SwitchBehaviorTyped {\n  sealed trait Command\n  case object Switch extends Command\n  case class Message(content: String) extends Command\n\n  // Behavior A logs as \"Mode A\"; Behavior B logs as \"Mode B\"\n  def modeA: Behavior[Command] = Behaviors.receive { (context, msg) =>\n    msg match {\n      case Switch =>\n        context.log.info(\"Switching from Mode A to Mode B.\")\n        modeB\n      case Message(text) =>\n        context.log.info(s\"Mode A received: $text\")\n        Behaviors.same\n      case _ => Behaviors.same\n    }\n  }\n\n  def modeB: Behavior[Command] = Behaviors.receive { (context, msg) =>\n    msg match {\n      case Switch =>\n        context.log.info(\"Switching from Mode B to Mode A.\")\n        modeA\n      case Message(text) =>\n        context.log.info(s\"Mode B received: $text\")\n        Behaviors.same\n      case _ => Behaviors.same\n    }\n  }\n\n  // Start in modeA\n  def apply(): Behavior[Command] = modeA\n}\n\nobject SwitchBehaviorTypedApp extends App {\n  import SwitchBehaviorTyped._\n\n  val system = ActorSystem(SwitchBehaviorTyped(), \"SwitchBehaviorTypedSystem\")\n  system ! Message(\"Hello in A\")\n  system ! Switch\n  system ! Message(\"Now in B\")\n  system ! Switch\n  system ! Message(\"Back to A\")\n\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+        "value": "// TypedPersistenceExample.scala\n// This example uses Akka Persistence Typed to implement a simple counter actor\n\nimport akka.actor.typed.{ActorSystem, Behavior}\nimport akka.actor.typed.scaladsl.Behaviors\nimport akka.persistence.typed.PersistenceId\nimport akka.persistence.typed.scaladsl.{EventSourcedBehavior, Effect, RetentionCriteria}\n\nobject TypedPersistenceExample {\n  // Define commands\n  sealed trait Command\n  case object Increment extends Command\n  case object Decrement extends Command\n  case object PrintState extends Command\n\n  // Define events\n  sealed trait Event\n  case object Incremented extends Event\n  case object Decremented extends Event\n\n  // Define the state\n  final case class CounterState(value: Int)\n\n  // Create the behavior using EventSourcedBehavior\n  def apply(entityId: String): Behavior[Command] = EventSourcedBehavior[\n    Command,\n    Event,\n    CounterState\n  ](\n    persistenceId = PersistenceId.ofUniqueId(entityId),\n    emptyState = CounterState(0),\n    commandHandler = (state, command) => command match {\n      case Increment => Effect.persist(Incremented)\n      case Decrement => Effect.persist(Decremented)\n      case PrintState =>\n        println(s\"Current state: ${state.value}\")\n        Effect.none\n    },\n    eventHandler = (state, event) => event match {\n      case Incremented => state.copy(value = state.value + 1)\n      case Decremented => state.copy(value = state.value - 1)\n    }\n  ).withRetention(\n    RetentionCriteria.snapshotEvery(numberOfEvents = 10, keepNSnapshots = 2)\n  )\n}\n\nobject TypedPersistenceExampleApp extends App {\n  import TypedPersistenceExample._\n  // Start the actor system with our persistent counter\n  val system: ActorSystem[Command] = ActorSystem(TypedPersistenceExample(\"CounterEntity\"), \"TypedPersistenceSystem\")\n  system ! Increment\n  system ! Increment\n  system ! Decrement\n  system ! PrintState\n  Thread.sleep(1000)\n  system.terminate()\n}\n"
       }
     ]
   },
@@ -27,11 +27,11 @@
     "conversations": [
       {
         "from": "human",
-        "value": "Show how to create a typed actor that uses Behaviors.withTimers to schedule a periodic Tick message and log it."
+        "value": "Typed Actor with Stream: Build a typed actor that, upon receiving a 'StartStream' command, runs a stream that sums numbers and logs the result."
       },
       {
         "from": "assistant",
-        "value": "// TimerTypedActor.scala\n\nimport akka.actor.typed.scaladsl.{Behaviors, TimerScheduler}\nimport akka.actor.typed.{ActorSystem, Behavior}\nimport scala.concurrent.duration._\n\nobject TimerTypedActor {\n  sealed trait Command\n  private case object TickKey\n  case object Tick extends Command\n\n  def apply(): Behavior[Command] = Behaviors.withTimers { (timers: TimerScheduler[Command]) =>\n    // Schedule a periodic Tick every 1 second\n    timers.startTimerWithFixedDelay(TickKey, Tick, 1.second)\n\n    Behaviors.receive { (context, message) =>\n      message match {\n        case Tick =>\n          context.log.info(\"TimerTypedActor: TICK\")\n          Behaviors.same\n      }\n    }\n  }\n}\n\nobject TimerTypedActorApp extends App {\n  val system = ActorSystem(TimerTypedActor(), \"TimerTypedSystem\")\n  Thread.sleep(3000)\n  system.terminate()\n}\n"
+        "value": "// SumStreamTyped.scala\n// This example demonstrates a typed actor that starts an on-demand stream to sum numbers.\n\nimport akka.actor.typed.scaladsl.Behaviors\nimport akka.actor.typed.{ActorSystem, Behavior}\nimport akka.stream.scaladsl.{Sink, Source}\nimport akka.stream.SystemMaterializer\nimport akka.{Done, NotUsed}\nimport scala.concurrent.Future\nimport scala.concurrent.ExecutionContext.Implicits.global\nimport scala.concurrent.duration._\nimport scala.util.{Success, Failure}\n\nobject OnDemandStreamActor {\n  sealed trait Command\n  case object StartStream extends Command\n\n  def apply(): Behavior[Command] = Behaviors.setup { context =>\n    // Obtain a Materializer from the typed system\n    implicit val mat = SystemMaterializer(context.system).materializer\n    Behaviors.receiveMessage {\n      case StartStream =>\n        context.log.info(\"Starting summation stream.\")\n        // Create a source of integers\n        val source: Source[Int, NotUsed] = Source(1 to 5)\n        // Create a sink that reduces (sums) the numbers\n        val sink: Sink[Int, Future[Int]] = Sink.reduce[Int](_ + _)\n        // Run the stream and obtain a Future with the result\n        val sumFuture: Future[Int] = source.runWith(sink)\n        sumFuture.onComplete {\n          case Success(sum) => context.log.info(s\"Summation result: $sum\")\n          case Failure(ex) => context.log.error(s\"Stream failed with: ${ex.getMessage}\")\n        }\n        Behaviors.same\n    }\n  }\n}\n\nobject SumStreamTypedApp extends App {\n  val system = ActorSystem(OnDemandStreamActor(), \"SumStreamSystem\")\n  system ! OnDemandStreamActor.StartStream\n  Thread.sleep(2000)\n  system.terminate()\n}\n"
       }
     ]
   },
@@ -39,11 +39,11 @@
     "conversations": [
       {
         "from": "human",
-        "value": "Give an example of a typed cluster where each node logs 'Cluster member up' upon joining the cluster."
+        "value": "Supervised Actor Example: Construct a typed actor that resumes on NumberFormatException but stops on other exceptions."
       },
       {
         "from": "assistant",
-        "value": "// TypedClusterExample.scala\n// Requires a proper application.conf for cluster settings.\n\nimport akka.actor.typed.scaladsl.Behaviors\nimport akka.actor.typed.{ActorSystem, Behavior}\nimport akka.cluster.typed.{Cluster, ClusterEvent, Subscribe}\nimport akka.cluster.typed.ClusterEvent.MemberUp\n\nobject TypedClusterExample {\n  sealed trait Command\n  private case class ClusterUpEvent(up: MemberUp) extends Command\n\n  def apply(): Behavior[Command] = Behaviors.setup { context =>\n    val cluster = Cluster(context.system)\n    // Subscribe to cluster MemberUp events\n    cluster.subscriptions ! Subscribe(context.self, classOf[MemberUp])\n\n    Behaviors.receiveMessage {\n      case ClusterUpEvent(MemberUp(member)) =>\n        context.log.info(s\"Cluster member is Up: ${member.address}\")\n        Behaviors.same\n    }\n  }\n}\n\nobject TypedClusterExampleApp extends App {\n  // In a real cluster, you'd start multiple ActorSystem instances.\n  val system = ActorSystem(TypedClusterExample(), \"MyCluster\")\n  Thread.sleep(10000)\n  system.terminate()\n}\n"
+        "value": "// ResumableActor.scala\n// This example demonstrates a typed actor with a supervised strategy.\n\nimport akka.actor.typed.scaladsl.Behaviors\nimport akka.actor.typed.{ActorSystem, Behavior, SupervisorStrategy}\n\nobject ResumableActor {\n  sealed trait Command\n  case class ParseNumber(input: String) extends Command\n\n  def apply(): Behavior[Command] = Behaviors.receive { (ctx, msg) =>\n    msg match {\n      case ParseNumber(input) =>\n        // This may throw a NumberFormatException if input is not numeric\n        val num = input.toInt\n        ctx.log.info(s\"Parsed number: $num\")\n        Behaviors.same\n    }\n  }\n}\n\nobject ResumableBehavior {\n  import ResumableActor._\n  def apply(): Behavior[Command] =\n    Behaviors.supervise(ResumableActor())\n      .onFailure[NumberFormatException](SupervisorStrategy.resume)\n      .onFailure[Exception](SupervisorStrategy.stop)\n}\n\nobject ResumeOnTypedExceptionExampleApp extends App {\n  val system = ActorSystem(ResumableBehavior(), \"ResumeTypedSystem\")\n  system ! ResumableActor.ParseNumber(\"123\")\n  system ! ResumableActor.ParseNumber(\"abc\") // Triggers NumberFormatException; actor resumes\n  system ! ResumableActor.ParseNumber(\"999\")\n  Thread.sleep(1000)\n  system.terminate()\n}\n"
       }
     ]
   },
@@ -51,11 +51,11 @@
     "conversations": [
       {
         "from": "human",
-        "value": "Show a simple example of an Akka Streams Source that emits numbers from 1 to 5 and prints them to the console."
+        "value": "Tagged Persistent Actor: Create a typed persistence actor that uses tagging for events."
       },
       {
         "from": "assistant",
-        "value": "// SimpleAkkaStream.scala\n\nimport akka.actor.ActorSystem\nimport akka.stream.scaladsl.{Sink, Source}\n\nobject SimpleAkkaStreamApp extends App {\n  implicit val system: ActorSystem = ActorSystem(\"SimpleStreamSystem\")\n\n  // A source of integers 1 to 5\n  val source = Source(1 to 5)\n\n  // Print each element to the console\n  val sink = Sink.foreach[Int](num => println(s\"Stream element: $num\"))\n\n  // Run the stream\n  source.runWith(sink)\n\n  Thread.sleep(1000)\n  system.terminate()\n}\n"
+        "value": "// TaggedPersistentActor.scala\n// This example shows a persistent actor that tags events so they can be filtered by projections.\n\nimport akka.actor.typed.scaladsl.Behaviors\nimport akka.actor.typed.{ActorSystem, Behavior}\nimport akka.persistence.typed.PersistenceId\nimport akka.persistence.typed.scaladsl.{EventSourcedBehavior, Effect, RetentionCriteria}\n\nobject TaggedPersistentActor {\n  // Commands\n  sealed trait Command\n  case object Increment extends Command\n  case object PrintState extends Command\n\n  // Events\n  sealed trait Event\n  case object Incremented extends Event\n\n  // State\n  final case class State(count: Int)\n\n  // Define a tag set for this entity\n  val MyTag = Set(\"counter-tag\")\n\n  def apply(entityId: String): Behavior[Command] = EventSourcedBehavior[\n    Command,\n    Event,\n    State\n  ](\n    persistenceId = PersistenceId.ofUniqueId(entityId),\n    emptyState = State(0),\n    commandHandler = (state, cmd) => cmd match {\n      case Increment => Effect.persist(Incremented)\n      case PrintState =>\n        println(s\"TaggedPersistentActor state = ${state.count}\")\n        Effect.none\n    },\n    eventHandler = (state, evt) => evt match {\n      case Incremented => state.copy(count = state.count + 1)\n    }\n  ).withTagger { event =>\n    event match {\n      case Incremented => MyTag\n    }\n  }\n}\n\nobject TaggedPersistentActorApp extends App {\n  val system = ActorSystem(TaggedPersistentActor(\"tag-entity\"), \"TaggedPersistenceSystem\")\n  system ! TaggedPersistentActor.Increment\n  system ! TaggedPersistentActor.Increment\n  system ! TaggedPersistentActor.PrintState\n  Thread.sleep(1000)\n  system.terminate()\n}\n"
       }
     ]
   },
@@ -63,11 +63,11 @@
     "conversations": [
       {
         "from": "human",
-        "value": "Create a typed persistence actor using akka-persistence-typed, storing and retrieving a counter state."
+        "value": "Partitioned Cluster Sharding: Construct a typed actor using cluster sharding that partitions entities by the numeric mod of their IDs."
       },
       {
         "from": "assistant",
-        "value": "// TypedPersistenceExample.scala\n\nimport akka.actor.typed.scaladsl.{Behaviors, Effect, EventSourcedBehavior}\nimport akka.actor.typed.{ActorSystem, Behavior}\nimport akka.persistence.typed.PersistenceId\n\nobject TypedPersistenceExample {\n  // Commands\n  sealed trait Command\n  case object Increment extends Command\n  case object Decrement extends Command\n  case object PrintState extends Command\n\n  // Events\n  sealed trait Event\n  case object Incremented extends Event\n  case object Decremented extends Event\n\n  // State\n  final case class CounterState(value: Int)\n\n  def apply(entityId: String): Behavior[Command] = {\n    EventSourcedBehavior[\n      Command,\n      Event,\n      CounterState\n    ](\n      persistenceId = PersistenceId.ofUniqueId(entityId),\n      emptyState = CounterState(0),\n      commandHandler = (state, command) => command match {\n        case Increment => Effect.persist(Incremented)\n        case Decrement => Effect.persist(Decremented)\n        case PrintState =>\n          println(s\"Current state: ${state.value}\")\n          Effect.none\n      },\n      eventHandler = (state, event) => event match {\n        case Incremented => state.copy(value = state.value + 1)\n        case Decremented => state.copy(value = state.value - 1)\n      }\n    )\n  }\n}\n\nobject TypedPersistenceExampleApp extends App {\n  import TypedPersistenceExample._\n\n  val system = ActorSystem(TypedPersistenceExample(\"CounterEntity\"), \"TypedPersistenceSystem\")\n\n  system ! Increment\n  system ! Increment\n  system ! Decrement\n  system ! PrintState\n\n  Thread.sleep(1000)\n  system.terminate()\n}\n"
+        "value": "// TypedClusterShardingModExample.scala\n// This example initializes cluster sharding for entities of type ModEntity, partitioned by the numeric mod of their ID.\n\nimport akka.actor.typed.scaladsl.Behaviors\nimport akka.actor.typed.{ActorSystem, Behavior}\nimport akka.cluster.sharding.typed.scaladsl.{ClusterSharding, Entity, EntityTypeKey}\n\nobject ModEntity {\n  // Define the commands for the entity\n  sealed trait Command { def entityId: String }\n  case class Process(entityId: String, payload: String) extends Command\n\n  // Simple behavior that logs the received message\n  def apply(entityId: String): Behavior[Command] = Behaviors.receive { (ctx, command) =>\n    command match {\n      case Process(_, payload) =>\n        ctx.log.info(s\"ModEntity [$entityId] processing: $payload\")\n        Behaviors.same\n    }\n  }\n}\n\nobject TypedClusterShardingModExampleApp extends App {\n  import ModEntity._\n  val TypeKey: EntityTypeKey[Command] = EntityTypeKey[Command](\"ModEntity\")\n\n  // Create a typed ActorSystem\n  val system = ActorSystem(Behaviors.empty, \"ModShardCluster\")\n  val sharding = ClusterSharding(system)\n\n  // Initialize the shard region\n  sharding.init(\n    Entity(TypeKey)(createBehavior = entityContext => ModEntity(entityContext.entityId))\n  )\n\n  // In a real cluster, messages would be sent via the shard region\n  Thread.sleep(5000)\n  system.terminate()\n}\n"
       }
     ]
   },
@@ -75,11 +75,11 @@
     "conversations": [
       {
         "from": "human",
-        "value": "Create an example of Akka HTTP server that responds with 'Hello from Akka HTTP' to any GET request on /hello."
+        "value": "GroupBy Streams Example: Demonstrate an Akka Streams GraphDSL that groups elements in groups of 2 and prints them."
       },
       {
         "from": "assistant",
-        "value": "// SimpleAkkaHttpServer.scala\n\nimport akka.actor.ActorSystem\nimport akka.http.scaladsl.Http\nimport akka.http.scaladsl.server.Directives._\nimport akka.http.scaladsl.server.Route\nimport akka.stream.ActorMaterializer\nimport scala.concurrent.ExecutionContextExecutor\nimport scala.io.StdIn\n\nobject SimpleAkkaHttpServer extends App {\n  implicit val system: ActorSystem = ActorSystem(\"AkkaHttpSystem\")\n  implicit val dispatcher: ExecutionContextExecutor = system.dispatcher\n  implicit val materializer: ActorMaterializer = ActorMaterializer()(system)\n\n  val route: Route =\n    path(\"hello\") {\n      get {\n        complete(\"Hello from Akka HTTP\")\n      }\n    }\n\n  val bindingFuture = Http().bindAndHandle(route, \"localhost\", 8080)\n  println(\"Server online at http://localhost:8080/hello\\nPress RETURN to stop...\")\n  StdIn.readLine() // Wait for user input to stop\n\n  bindingFuture\n    .flatMap(_.unbind())\n    .onComplete(_ => system.terminate())\n}\n"
+        "value": "// GroupByStreamExample.scala\n// This example groups a stream of key-value pairs by the key and then merges the substreams to print all elements.\n\nimport akka.actor.ActorSystem\nimport akka.stream.ActorMaterializer\nimport akka.stream.scaladsl.{Sink, Source}\nimport scala.concurrent.ExecutionContextExecutor\n\nobject GroupByStreamExample extends App {\n  implicit val system: ActorSystem = ActorSystem(\"GroupBySystem\")\n  implicit val ec: ExecutionContextExecutor = system.dispatcher\n  implicit val mat: ActorMaterializer = ActorMaterializer()(system)\n\n  // Define a source of tuples\n  val source = Source(List((1, \"apple\"), (2, \"banana\"), (1, \"cherry\"), (2, \"date\")))\n\n  // Group the source by key, then merge substreams and print each element\n  val done = source.groupBy(2, _._1)\n    .mergeSubstreams\n    .runForeach { case (key, value) =>\n      println(s\"Group #$key => $value\")\n    }\n\n  done.onComplete(_ => system.terminate())\n}\n"
       }
     ]
   },
@@ -87,11 +87,11 @@
     "conversations": [
       {
         "from": "human",
-        "value": "Give an example of using Distributed Data with the GCounter CRDT in Akka, incrementing a global counter."
+        "value": "Typed Cluster Membership Watcher: Build a typed cluster membership watcher that logs join and removal events using MemberEvent."
       },
       {
         "from": "assistant",
-        "value": "// DistributedDataGCounterExample.scala\n// Demonstrates usage of Akka Distributed Data GCounter\n\nimport akka.actor.ActorSystem\nimport akka.cluster.ddata.{DistributedData, GCounter, GCounterKey, SelfUniqueAddress}\nimport akka.cluster.ddata.Replicator._\nimport scala.concurrent.duration._\nimport scala.concurrent.ExecutionContext.Implicits.global\n\nobject DistributedDataGCounterExample extends App {\n  val system = ActorSystem(\"DDSystem\")\n  val replicator = DistributedData(system).replicator\n  implicit val node: SelfUniqueAddress = DistributedData(system).selfUniqueAddress\n\n  val key = GCounterKey(\"globalCounter\")\n\n  // Increment the counter by 3\n  replicator ! Update(key, GCounter.empty, WriteLocal)(_ increment node 3)\n\n  // Read it back after a small delay\n  system.scheduler.scheduleOnce(1.second) {\n    replicator ! Get(key, ReadLocal)\n  }\n\n  system.scheduler.scheduleOnce(2.seconds) {\n    system.terminate()\n  }\n\n  // In a real cluster, you'd run multiple nodes referencing the same key.\n}\n"
+        "value": "// TypedClusterMembershipWatcher.scala\n// This example subscribes to cluster membership events and logs when members join or leave.\n\nimport akka.actor.typed.scaladsl.Behaviors\nimport akka.actor.typed.{ActorSystem, Behavior}\nimport akka.cluster.typed.{Cluster, Subscribe}\nimport akka.cluster.typed.ClusterEvent.{MemberEvent, MemberUp, MemberRemoved}\n\nobject MembershipWatcher {\n  sealed trait Command\n  private final case class WrappedMemberEvent(event: MemberEvent) extends Command\n\n  def apply(): Behavior[Command] = Behaviors.setup { ctx =>\n    // Create an adapter to wrap MemberEvent messages\n    val adapter = ctx.messageAdapter[MemberEvent](WrappedMemberEvent(_))\n    // Subscribe to all membership events\n    Cluster(ctx.system).subscriptions ! Subscribe(adapter, classOf[MemberEvent])\n\n    Behaviors.receiveMessage {\n      case WrappedMemberEvent(MemberUp(member)) =>\n        ctx.log.info(s\"Member is up: ${member.address}\")\n        Behaviors.same\n      case WrappedMemberEvent(MemberRemoved(member, previousStatus)) =>\n        ctx.log.info(s\"Member removed: ${member.address} (was $previousStatus)\")\n        Behaviors.same\n      case WrappedMemberEvent(other) =>\n        ctx.log.info(s\"Other cluster event: $other\")\n        Behaviors.same\n    }\n  }\n}\n\nobject TypedClusterMembershipExampleApp extends App {\n  val system = ActorSystem(MembershipWatcher(), \"ClusterMembershipSystem\")\n  Thread.sleep(10000)\n  system.terminate()\n}\n"
       }
     ]
   },
@@ -99,419 +99,11 @@
     "conversations": [
       {
         "from": "human",
-        "value": "Show a typed actor system that uses a Stream in combination with a typed actor, feeding data into the actor with a Sink.actorRef."
+        "value": "Stdin Stream Example: Construct a typed streams example reading lines from stdin with StreamConverters, logging them in the console."
       },
       {
         "from": "assistant",
-        "value": "// TypedActorWithStream.scala\n\nimport akka.actor.typed.scaladsl.Behaviors\nimport akka.actor.typed.{ActorRef, ActorSystem, Behavior}\nimport akka.stream.scaladsl.{Sink, Source}\nimport akka.{Done, NotUsed}\nimport scala.concurrent.Future\nimport scala.concurrent.duration._\n\nobject StreamConsumer {\n  sealed trait Command\n  final case class Element(value: Int) extends Command\n  final case object Complete extends Command\n  final case class Fail(ex: Throwable) extends Command\n\n  def apply(): Behavior[Command] = Behaviors.receive { (context, message) =>\n    message match {\n      case Element(value) =>\n        context.log.info(s\"StreamConsumer received: $value\")\n        Behaviors.same\n      case Complete =>\n        context.log.info(\"Stream complete.\")\n        Behaviors.stopped\n      case Fail(ex) =>\n        context.log.error(s\"Stream failed: ${ex.getMessage}\")\n        Behaviors.stopped\n    }\n  }\n}\n\nobject TypedActorWithStreamApp extends App {\n  import StreamConsumer._\n\n  // Create typed actor system\n  val system = ActorSystem(StreamConsumer(), \"StreamConsumerSystem\")\n\n  // A source from 1 to 5\n  val source: Source[Int, NotUsed] = Source(1 to 5)\n\n  // Create a Sink that sends each element to our typed actor\n  val sink: Sink[Int, Future[Done]] =\n    Sink.actorRef[\n      Command\n    ](\n      ref = system,\n      onCompleteMessage = Complete,\n      onFailureMessage = ex => Fail(ex)\n    ).contramap[Int](Element)\n\n  // Run the stream\n  source.runWith(sink)(system.classicSystem)\n}\n"
-      }
-    ]
-  },
-  {
-    "conversations": [
-      {
-        "from": "human",
-        "value": "Build a typed cluster sharding example that initializes a shard region for entities of type MyEntityBehavior."
-      },
-      {
-        "from": "assistant",
-        "value": "// TypedClusterShardingExample.scala\n\nimport akka.actor.typed.scaladsl.Behaviors\nimport akka.actor.typed.{ActorRef, ActorSystem, Behavior}\nimport akka.cluster.sharding.typed.scaladsl.{ClusterSharding, Entity, EntityTypeKey}\nimport akka.cluster.typed.{Cluster, SelfUp, Subscribe}\n\nobject MyEntityBehavior {\n  sealed trait Command { def entityId: String }\n  final case class Process(entityId: String, msg: String) extends Command\n\n  def apply(entityId: String): Behavior[Command] = Behaviors.receive { (ctx, command) =>\n    command match {\n      case Process(_, msg) =>\n        ctx.log.info(s\"Entity [$entityId] processing: $msg\")\n        Behaviors.same\n    }\n  }\n}\n\nobject TypedClusterShardingExample {\n  import MyEntityBehavior._\n  val TypeKey: EntityTypeKey[MyEntityBehavior.Command] = EntityTypeKey(\"MyEntity\")\n\n  def init(system: ActorSystem[_]): ActorRef[Process] = {\n    val sharding = ClusterSharding(system)\n\n    // Set up entity\n    sharding.init(\n      Entity(TypeKey)(createBehavior = entityContext => MyEntityBehavior(entityContext.entityId))\n    )\n  }\n}\n\nobject TypedClusterShardingExampleApp extends App {\n  // In a real cluster, you'd have multiple nodes.\n  val system = ActorSystem(Behaviors.empty, \"ShardingCluster\")\n  val shardRegion = TypedClusterShardingExample.init(system)\n\n  // Send an example message\n  shardRegion ! MyEntityBehavior.Process(\"entity-1\", \"Hello Sharding\")\n\n  Thread.sleep(5000)\n  system.terminate()\n}\n"
-      }
-    ]
-  },
-  {
-    "conversations": [
-      {
-        "from": "human",
-        "value": "Show how to implement a typed actor that, upon receiving a 'CompleteStream' command, runs a stream that prints messages."
-      },
-      {
-        "from": "assistant",
-        "value": "// TypedActorStreamOnDemand.scala\n\nimport akka.actor.typed.scaladsl.Behaviors\nimport akka.actor.typed.{ActorSystem, Behavior}\nimport akka.stream.scaladsl.{Sink, Source}\nimport akka.{Done, NotUsed}\nimport scala.concurrent.Future\nimport scala.concurrent.ExecutionContext.Implicits.global\n\nobject OnDemandStreamActor {\n  sealed trait Command\n  case object CompleteStream extends Command\n\n  def apply(): Behavior[Command] = Behaviors.receive { (context, msg) =>\n    msg match {\n      case CompleteStream =>\n        context.log.info(\"Starting on-demand stream...\")\n        val stream: Source[Int, NotUsed] = Source(1 to 3)\n        val done: Future[Done] = stream.runForeach(n => context.log.info(s\"Stream element: $n\"))(context.system.classicSystem)\n        Behaviors.same\n    }\n  }\n}\n\nobject TypedActorStreamOnDemandApp extends App {\n  val system = ActorSystem(OnDemandStreamActor(), \"OnDemandStreamSystem\")\n\n  system ! OnDemandStreamActor.CompleteStream\n\n  Thread.sleep(2000)\n  system.terminate()\n}\n"
-      }
-    ]
-  },
-  {
-    "conversations": [
-      {
-        "from": "human",
-        "value": "Demonstrate using a typed cluster singleton for a SingletonBehavior that logs 'I am the singleton' periodically."
-      },
-      {
-        "from": "assistant",
-        "value": "// TypedClusterSingletonExample.scala\n\nimport akka.actor.typed.scaladsl.Behaviors\nimport akka.actor.typed.{ActorSystem, Behavior}\nimport akka.cluster.typed.{ClusterSingleton, SingletonActor}\nimport scala.concurrent.duration._\nimport akka.actor.typed.scaladsl.TimerScheduler\n\nobject SingletonBehavior {\n  sealed trait Command\n  case object Tick extends Command\n\n  def apply(): Behavior[Command] = Behaviors.withTimers { timers: TimerScheduler[Command] =>\n    timers.startTimerWithFixedDelay(Tick, Tick, 2.seconds)\n    Behaviors.receive { (ctx, msg) =>\n      msg match {\n        case Tick =>\n          ctx.log.info(\"I am the cluster singleton, running...\")\n          Behaviors.same\n      }\n    }\n  }\n}\n\nobject TypedClusterSingletonExampleApp extends App {\n  val system = ActorSystem(Behaviors.empty, \"SingletonCluster\")\n\n  // Create or get a cluster singleton\n  val singletonManager = ClusterSingleton(system)\n\n  val singletonRef = singletonManager.init(\n    SingletonActor(\n      SingletonBehavior(),\n      \"GlobalSingleton\"\n    )\n  )\n\n  Thread.sleep(10000)\n  system.terminate()\n}\n"
-      }
-    ]
-  },
-  {
-    "conversations": [
-      {
-        "from": "human",
-        "value": "Create an example typed actor that uses a standard typed Supervision strategy (restart on any exception)."
-      },
-      {
-        "from": "assistant",
-        "value": "// TypedSupervisionExample.scala\n\nimport akka.actor.typed.{ActorSystem, Behavior, SupervisorStrategy}\nimport akka.actor.typed.scaladsl.Behaviors\nimport scala.concurrent.duration._\n\nobject FaultyTypedBehavior {\n  sealed trait Command\n  case object Fail extends Command\n\n  def apply(): Behavior[Command] = Behaviors.receive { (context, message) =>\n    message match {\n      case Fail =>\n        context.log.info(\"FaultyTypedBehavior: Throwing exception!\")\n        throw new RuntimeException(\"Failure!\")\n    }\n  }\n}\n\nobject SupervisedTypedBehavior {\n  import FaultyTypedBehavior._\n\n  def apply(): Behavior[Command] = Behaviors.supervise(FaultyTypedBehavior())\n    .onFailure[RuntimeException](SupervisorStrategy.restart.withLimit(maxNrOfRetries = 3, withinTimeRange = 1.second))\n}\n\nobject TypedSupervisionExampleApp extends App {\n  val system = ActorSystem(SupervisedTypedBehavior(), \"TypedSupervisionSystem\")\n\n  system ! FaultyTypedBehavior.Fail\n  system ! FaultyTypedBehavior.Fail\n  system ! FaultyTypedBehavior.Fail\n\n  Thread.sleep(2000)\n  system.terminate()\n}\n"
-      }
-    ]
-  },
-  {
-    "conversations": [
-      {
-        "from": "human",
-        "value": "Show a typed actor that uses an Akka Stream Source.queue to handle incoming messages in a buffer."
-      },
-      {
-        "from": "assistant",
-        "value": "// TypedActorWithSourceQueue.scala\n\nimport akka.actor.typed.scaladsl.{Behaviors, ActorContext}\nimport akka.actor.typed.{ActorSystem, Behavior}\nimport akka.stream.scaladsl.{Sink, Source, SourceQueueWithComplete}\nimport akka.stream.{OverflowStrategy, QueueOfferResult}\nimport akka.{Done, NotUsed}\nimport scala.concurrent.Future\nimport scala.concurrent.ExecutionContext.Implicits.global\n\nobject QueueDriverActor {\n  sealed trait Command\n  case class Enqueue(msg: String) extends Command\n  case object CompleteQueue extends Command\n\n  def apply(queue: SourceQueueWithComplete[String]): Behavior[Command] = Behaviors.receive { (ctx, message) =>\n    message match {\n      case Enqueue(msg) =>\n        queue.offer(msg).onComplete {\n          case scala.util.Success(result: QueueOfferResult) =>\n            ctx.log.info(s\"Enqueue result: $result\")\n          case scala.util.Failure(ex) =>\n            ctx.log.error(s\"Enqueue failed: ${ex.getMessage}\")\n        }\n        Behaviors.same\n      case CompleteQueue =>\n        queue.complete()\n        Behaviors.same\n    }\n  }\n}\n\nobject TypedActorWithSourceQueueApp extends App {\n  implicit val system = ActorSystem(Behaviors.empty, \"SourceQueueSystem\")\n  implicit val classic = system.classicSystem\n\n  // Create a queue-based source\n  val bufferSize = 10\n  val source: Source[String, SourceQueueWithComplete[String]] =\n    Source.queue[String](bufferSize, OverflowStrategy.dropNew)\n\n  val sink: Sink[String, Future[Done]] = Sink.foreach(str => println(s\"Queue item: $str\"))\n\n  val (queue, done) = source.toMat(sink)(akka.stream.scaladsl.Keep.both).run()(classic)\n\n  // Create typed actor\n  val driver = system.systemActorOf(QueueDriverActor(queue), \"queueDriver\")\n\n  driver ! QueueDriverActor.Enqueue(\"hello 1\")\n  driver ! QueueDriverActor.Enqueue(\"hello 2\")\n  driver ! QueueDriverActor.Enqueue(\"hello 3\")\n\n  Thread.sleep(500)\n  driver ! QueueDriverActor.CompleteQueue\n\n  done.onComplete(_ => system.terminate())\n}\n"
-      }
-    ]
-  },
-  {
-    "conversations": [
-      {
-        "from": "human",
-        "value": "Illustrate a typed actor Behavior that uses onSignal to handle a PostStop signal."
-      },
-      {
-        "from": "assistant",
-        "value": "// TypedOnSignalExample.scala\n\nimport akka.actor.typed.scaladsl.Behaviors\nimport akka.actor.typed.{ActorSystem, Behavior, PostStop}\n\nobject OnSignalActor {\n  sealed trait Command\n  case object StopMe extends Command\n\n  def apply(): Behavior[Command] = Behaviors.setup { context =>\n    Behaviors.receiveMessage[Command] {\n      case StopMe =>\n        context.log.info(\"Received StopMe, stopping...\")\n        Behaviors.stopped\n    }.receiveSignal {\n      case (ctx, PostStop) =>\n        ctx.log.info(\"OnSignalActor: PostStop signal received.\")\n        Behaviors.same\n    }\n  }\n}\n\nobject TypedOnSignalExampleApp extends App {\n  val system = ActorSystem(OnSignalActor(), \"OnSignalSystem\")\n\n  system ! OnSignalActor.StopMe\n\n  Thread.sleep(500)\n  system.terminate()\n}\n"
-      }
-    ]
-  },
-  {
-    "conversations": [
-      {
-        "from": "human",
-        "value": "Build a typed actor that acts as an HTTP client using Akka HTTP, fetching data from a public API and logging the response."
-      },
-      {
-        "from": "assistant",
-        "value": "// TypedHttpClientActor.scala\n\nimport akka.actor.typed.scaladsl.{Behaviors, ActorContext}\nimport akka.actor.typed.{ActorSystem, Behavior}\nimport akka.http.scaladsl.Http\nimport akka.http.scaladsl.model.HttpRequest\nimport akka.http.scaladsl.unmarshalling.Unmarshal\nimport akka.stream.Materializer\nimport scala.concurrent.ExecutionContext\n\nobject HttpClientActor {\n  sealed trait Command\n  case object FetchData extends Command\n\n  def apply(): Behavior[Command] = Behaviors.setup { context =>\n    implicit val classicSystem = context.system.classicSystem\n    implicit val ec: ExecutionContext = context.executionContext\n    implicit val mat: Materializer = Materializer(classicSystem)\n\n    Behaviors.receiveMessage {\n      case FetchData =>\n        val responseF = Http()(classicSystem).singleRequest(HttpRequest(uri = \"https://jsonplaceholder.typicode.com/posts/1\"))\n        responseF.foreach { response =>\n          Unmarshal(response.entity).to[String].foreach { body =>\n            context.log.info(s\"HTTP response body: $body\")\n          }\n        }\n        Behaviors.same\n    }\n  }\n}\n\nobject TypedHttpClientActorApp extends App {\n  val system = ActorSystem(HttpClientActor(), \"TypedHttpClientSystem\")\n\n  system ! HttpClientActor.FetchData\n\n  Thread.sleep(3000)\n  system.terminate()\n}\n"
-      }
-    ]
-  },
-  {
-    "conversations": [
-      {
-        "from": "human",
-        "value": "Demonstrate an Akka Typed Persistent Actor that uses snapshots after every 5 events."
-      },
-      {
-        "from": "assistant",
-        "value": "// SnapshotPersistentTyped.scala\n\nimport akka.actor.typed.scaladsl.{Behaviors, EventSourcedBehavior}\nimport akka.actor.typed.{ActorSystem, Behavior}\nimport akka.persistence.typed.PersistenceId\nimport akka.persistence.typed.scaladsl.{RetentionCriteria}\n\nobject SnapshotPersistentTyped {\n  sealed trait Command\n  case object Increase extends Command\n  case object Show extends Command\n\n  sealed trait Event\n  case object Increased extends Event\n\n  final case class State(count: Int)\n\n  def apply(entityId: String): Behavior[Command] =\n    EventSourcedBehavior[\n      Command,\n      Event,\n      State\n    ](\n      persistenceId = PersistenceId.ofUniqueId(entityId),\n      emptyState = State(0),\n      commandHandler = (state, cmd) => cmd match {\n        case Increase => Effect.persist(Increased)\n        case Show =>\n          println(s\"Current count is ${state.count}\")\n          Effect.none\n      },\n      eventHandler = (state, evt) => evt match {\n        case Increased => state.copy(count = state.count + 1)\n      }\n    ).withRetention(\n      RetentionCriteria.snapshotEvery(numberOfEvents = 5, keepNSnapshots = 2)\n    )\n}\n\nobject SnapshotPersistentTypedApp extends App {\n  val system = ActorSystem(SnapshotPersistentTyped(\"snapEntity\"), \"SnapshotSystem\")\n\n  for (_ <- 1 to 7) system ! SnapshotPersistentTyped.Increase\n  system ! SnapshotPersistentTyped.Show\n\n  Thread.sleep(2000)\n  system.terminate()\n}\n"
-      }
-    ]
-  },
-  {
-    "conversations": [
-      {
-        "from": "human",
-        "value": "Construct a typed actor that uses a typed supervised approach to resume on NumberFormatException but stops on others."
-      },
-      {
-        "from": "assistant",
-        "value": "// ResumeOnTypedExceptionExample.scala\n\nimport akka.actor.typed.scaladsl.Behaviors\nimport akka.actor.typed.{ActorSystem, Behavior, SupervisorStrategy}\n\nobject ResumableActor {\n  sealed trait Command\n  case class ParseNumber(input: String) extends Command\n\n  def apply(): Behavior[Command] = Behaviors.receive { (ctx, msg) =>\n    msg match {\n      case ParseNumber(input) =>\n        val num = input.toInt // might throw NumberFormatException\n        ctx.log.info(s\"Parsed number: $num\")\n        Behaviors.same\n    }\n  }\n}\n\nobject ResumableBehavior {\n  import ResumableActor._\n\n  def apply(): Behavior[Command] = Behaviors.supervise(ResumableActor())\n    .onFailure[NumberFormatException](SupervisorStrategy.resume)\n    .onFailure[Exception](SupervisorStrategy.stop)\n}\n\nobject ResumeOnTypedExceptionExampleApp extends App {\n  val system = ActorSystem(ResumableBehavior(), \"ResumeTypedSystem\")\n\n  system ! ResumableActor.ParseNumber(\"123\")\n  system ! ResumableActor.ParseNumber(\"abc\") // NumberFormatException -> resume\n  system ! ResumableActor.ParseNumber(\"999\")\n  // If another exception occurred, the actor would stop.\n\n  Thread.sleep(1000)\n  system.terminate()\n}\n"
-      }
-    ]
-  },
-  {
-    "conversations": [
-      {
-        "from": "human",
-        "value": "Create a typed actor system that uses config from application.conf to log custom settings on startup."
-      },
-      {
-        "from": "assistant",
-        "value": "// ConfigLoggingTyped.scala\n\nimport akka.actor.typed.scaladsl.Behaviors\nimport akka.actor.typed.{ActorSystem, Behavior}\n\nobject ConfigLoggingTyped {\n  sealed trait Command\n  case object PrintConfig extends Command\n\n  def apply(): Behavior[Command] = Behaviors.setup { context =>\n    val someSetting = context.system.settings.config.getString(\"custom.setting\")\n    context.log.info(s\"Actor started with custom.setting = $someSetting\")\n\n    Behaviors.receiveMessage {\n      case PrintConfig =>\n        context.log.info(s\"Current config says: $someSetting\")\n        Behaviors.same\n    }\n  }\n}\n\nobject ConfigLoggingTypedApp extends App {\n  // In application.conf, define: custom.setting = \"Hello Config\"\n  val system = ActorSystem(ConfigLoggingTyped(), \"ConfigLoggingSystem\")\n  system ! ConfigLoggingTyped.PrintConfig\n\n  Thread.sleep(500)\n  system.terminate()\n}\n"
-      }
-    ]
-  },
-  {
-    "conversations": [
-      {
-        "from": "human",
-        "value": "Demonstrate a typed cluster with a receptionist-based service discovery, where a 'PingService' registers itself and 'Client' finds it."
-      },
-      {
-        "from": "assistant",
-        "value": "// TypedClusterReceptionistExample.scala\n\nimport akka.actor.typed.scaladsl.{Behaviors, ActorContext}\nimport akka.actor.typed.{ActorRef, ActorSystem, Behavior}\nimport akka.cluster.typed.{Cluster, SelfUp, Subscribe}\nimport akka.actor.typed.receptionist.{Receptionist, ServiceKey}\n\nobject PingService {\n  val PingKey = ServiceKey[PingCommand](\"PingService\")\n\n  sealed trait PingCommand\n  case class Ping(replyTo: ActorRef[String]) extends PingCommand\n\n  def apply(): Behavior[PingCommand] = Behaviors.setup { ctx =>\n    // Register this service\n    ctx.system.receptionist ! Receptionist.Register(PingKey, ctx.self)\n\n    Behaviors.receiveMessage {\n      case Ping(replyTo) =>\n        replyTo ! \"Pong\"\n        Behaviors.same\n    }\n  }\n}\n\nobject Client {\n  import PingService._\n\n  sealed trait Command\n  case object FindPingService extends Command\n  case class WrappedListing(listing: Receptionist.Listing) extends Command\n\n  def apply(): Behavior[Command] = Behaviors.setup { ctx =>\n    val listingAdapter = ctx.messageAdapter[Receptionist.Listing](WrappedListing)\n\n    Behaviors.receiveMessage {\n      case FindPingService =>\n        ctx.system.receptionist ! Receptionist.Find(PingKey, listingAdapter)\n        Behaviors.same\n      case WrappedListing(PingService.PingKey.Listing(listings)) =>\n        listings.foreach { pingRef =>\n          ctx.log.info(\"Found PingService, sending Ping...\")\n          pingRef ! Ping(ctx.messageAdapter[String](rsp => {\n            ctx.log.info(s\"Received: $rsp\")\n            FindPingService // or some other next action\n          }))\n        }\n        Behaviors.same\n    }\n  }\n}\n\nobject TypedClusterReceptionistExampleApp extends App {\n  val system = ActorSystem(Behaviors.setup[Nothing] { ctx =>\n    ctx.spawn(PingService(), \"PingActor\")\n    val client = ctx.spawn(Client(), \"ClientActor\")\n    client ! Client.FindPingService\n    Behaviors.empty\n  }, \"ReceptionistCluster\")\n\n  Thread.sleep(5000)\n  system.terminate()\n}\n"
-      }
-    ]
-  },
-  {
-    "conversations": [
-      {
-        "from": "human",
-        "value": "Show an example of Akka Streams GraphDSL that merges two sources of integers into one sink."
-      },
-      {
-        "from": "assistant",
-        "value": "// GraphDslMergeExample.scala\n\nimport akka.actor.ActorSystem\nimport akka.stream.{ActorMaterializer, ClosedShape}\nimport akka.stream.scaladsl.{GraphDSL, Merge, Sink, Source}\nimport scala.concurrent.ExecutionContextExecutor\n\nobject GraphDslMergeExample extends App {\n  implicit val system: ActorSystem = ActorSystem(\"GraphMergeSystem\")\n  implicit val ec: ExecutionContextExecutor = system.dispatcher\n  implicit val mat: ActorMaterializer = ActorMaterializer()(system)\n\n  val source1 = Source(1 to 3)\n  val source2 = Source(4 to 6)\n\n  val sink = Sink.foreach[Int](i => println(s\"Merged stream: $i\"))\n\n  val graph = akka.stream.scaladsl.RunnableGraph.fromGraph(GraphDSL.create(sink) { implicit builder => s =>\n    import GraphDSL.Implicits._\n\n    val merge = builder.add(Merge[Int](2))\n\n    source1 ~> merge\n    source2 ~> merge ~> s\n\n    ClosedShape\n  })\n\n  graph.run()\n\n  // give some time and then terminate\n  Thread.sleep(1000)\n  system.terminate()\n}\n"
-      }
-    ]
-  },
-  {
-    "conversations": [
-      {
-        "from": "human",
-        "value": "Implement a typed actor Behavior that upon receiving 'StartStream', constructs a stream that sums numbers then logs the result."
-      },
-      {
-        "from": "assistant",
-        "value": "// SumStreamTyped.scala\n\nimport akka.actor.typed.scaladsl.Behaviors\nimport akka.actor.typed.{ActorSystem, Behavior}\nimport akka.stream.scaladsl.{Sink, Source}\nimport scala.concurrent.ExecutionContext\nimport akka.{Done, NotUsed}\n\nobject StreamSummationActor {\n  sealed trait Command\n  case object StartStream extends Command\n\n  def apply(): Behavior[Command] = Behaviors.setup { context =>\n    implicit val classicSystem = context.system.classicSystem\n    implicit val ec: ExecutionContext = context.executionContext\n\n    Behaviors.receiveMessage {\n      case StartStream =>\n        context.log.info(\"Starting summation stream.\")\n        val source: Source[Int, NotUsed] = Source(1 to 5)\n        val sink: Sink[Int, scala.concurrent.Future[Int]] = Sink.reduce[Int](_ + _)\n        val sumFuture = source.runWith(sink)(classicSystem)\n        sumFuture.foreach { sum =>\n          context.log.info(s\"Summation result: $sum\")\n        }\n        Behaviors.same\n    }\n  }\n}\n\nobject SumStreamTypedApp extends App {\n  val system = ActorSystem(StreamSummationActor(), \"SumStreamSystem\")\n  system ! StreamSummationActor.StartStream\n\n  Thread.sleep(2000)\n  system.terminate()\n}\n"
-      }
-    ]
-  },
-  {
-    "conversations": [
-      {
-        "from": "human",
-        "value": "Create a typed actor cluster example that uses a cluster aware router to send messages to typed actors on different nodes."
-      },
-      {
-        "from": "assistant",
-        "value": "// TypedClusterAwareRouterExample.scala\n// Note: Akka 2.6+ uses group or pool routers, but typed cluster-based routing often requires custom approach.\n\nimport akka.actor.typed.scaladsl.Behaviors\nimport akka.actor.typed.{ActorRef, ActorSystem, Behavior}\nimport akka.cluster.typed.{Cluster, SelfUp, Subscribe}\nimport akka.actor.typed.receptionist.{Receptionist, ServiceKey}\n\nobject Worker {\n  val WorkerKey = ServiceKey[Command](\"WorkerService\")\n\n  sealed trait Command\n  case class Work(payload: String) extends Command\n\n  def apply(): Behavior[Command] = Behaviors.setup { ctx =>\n    // Register with receptionist\n    ctx.system.receptionist ! Receptionist.Register(WorkerKey, ctx.self)\n\n    Behaviors.receiveMessage {\n      case Work(payload) =>\n        ctx.log.info(s\"Processing work: $payload on ${ctx.self.path}\")\n        Behaviors.same\n    }\n  }\n}\n\nobject Router {\n  import Worker._\n  sealed trait RouterCommand\n  case class Dispatch(payload: String) extends RouterCommand\n  private case class ListingResponse(listing: Receptionist.Listing) extends RouterCommand\n\n  def apply(): Behavior[RouterCommand] = Behaviors.setup { ctx =>\n    val adapter = ctx.messageAdapter[Receptionist.Listing](ListingResponse)\n    ctx.system.receptionist ! Receptionist.Subscribe(Worker.WorkerKey, adapter)\n\n    var workers = Set.empty[ActorRef[Worker.Command]]\n\n    Behaviors.receiveMessage {\n      case ListingResponse(Worker.WorkerKey.Listing(newWorkers)) =>\n        workers = newWorkers\n        ctx.log.info(s\"Router: Updated worker set: $workers\")\n        Behaviors.same\n      case Dispatch(payload) =>\n        // Simple round-robin or random approach\n        workers.headOption.foreach(ref => ref ! Work(payload))\n        Behaviors.same\n    }\n  }\n}\n\nobject TypedClusterAwareRouterExampleApp extends App {\n  val system = ActorSystem(Behaviors.setup[Nothing] { ctx =>\n    // Spawn a worker and a router\n    ctx.spawn(Worker(), \"worker1\")\n    val router = ctx.spawn(Router(), \"router\")\n\n    // After a short delay, dispatch some work\n    ctx.scheduleOnce(scala.concurrent.duration.DurationInt(2).seconds, router, Router.Dispatch(\"some cluster work\"))\n\n    Behaviors.empty\n  }, \"ClusterAwareRouter\")\n\n  Thread.sleep(10000)\n  system.terminate()\n}\n"
-      }
-    ]
-  },
-  {
-    "conversations": [
-      {
-        "from": "human",
-        "value": "Create an example of an Akka Streams Flow that capitalizes strings, used between a Source of strings and a Sink that logs them."
-      },
-      {
-        "from": "assistant",
-        "value": "// CapitalizeFlowExample.scala\n\nimport akka.actor.ActorSystem\nimport akka.stream.ActorMaterializer\nimport akka.stream.scaladsl.{Flow, Sink, Source}\nimport scala.concurrent.ExecutionContextExecutor\n\nobject CapitalizeFlowExample extends App {\n  implicit val system: ActorSystem = ActorSystem(\"CapFlowSystem\")\n  implicit val ec: ExecutionContextExecutor = system.dispatcher\n  implicit val mat: ActorMaterializer = ActorMaterializer()(system)\n\n  val source = Source(List(\"hello\", \"akka\", \"streams\"))\n\n  // Flow that transforms strings to uppercase\n  val capitalizeFlow = Flow[String].map(_.toUpperCase)\n\n  val sink = Sink.foreach[String](s => println(s\"Got: $s\"))\n\n  val runnable = source.via(capitalizeFlow).to(sink)\n  runnable.run()\n\n  Thread.sleep(1000)\n  system.terminate()\n}\n"
-      }
-    ]
-  },
-  {
-    "conversations": [
-      {
-        "from": "human",
-        "value": "Give a typed cluster example using cluster roles, where an actor logs if it's on a 'backend' role node."
-      },
-      {
-        "from": "assistant",
-        "value": "// TypedClusterRolesExample.scala\n\nimport akka.actor.typed.scaladsl.Behaviors\nimport akka.actor.typed.{ActorSystem, Behavior}\nimport akka.cluster.typed.{Cluster, SelfUp, Subscribe}\nimport akka.cluster.MemberStatus\n\nobject RoleAwareBehavior {\n  sealed trait Command\n  private case class UpEvent(selfUp: SelfUp) extends Command\n\n  def apply(): Behavior[Command] = Behaviors.setup { ctx =>\n    val cluster = Cluster(ctx.system)\n    cluster.subscriptions ! Subscribe(ctx.self, classOf[SelfUp])\n\n    Behaviors.receiveMessage {\n      case UpEvent(SelfUp(m)) =>\n        if (m.roles.contains(\"backend\")) {\n          ctx.log.info(s\"Node ${m.address} joined with backend role.\")\n        } else {\n          ctx.log.info(s\"Node ${m.address} joined with roles: ${m.roles}\")\n        }\n        Behaviors.same\n    }\n  }\n}\n\nobject TypedClusterRolesExampleApp extends App {\n  val system = ActorSystem(RoleAwareBehavior(), \"MyCluster\")\n  Thread.sleep(10000)\n  system.terminate()\n}\n"
-      }
-    ]
-  },
-  {
-    "conversations": [
-      {
-        "from": "human",
-        "value": "Implement a typed actor that uses Akka Persistence (classic DB plugin) to store a user name, with typed command and event."
-      },
-      {
-        "from": "assistant",
-        "value": "// TypedPersistenceUserName.scala\n\nimport akka.actor.typed.scaladsl.{Behaviors, EventSourcedBehavior}\nimport akka.actor.typed.{ActorSystem, Behavior}\nimport akka.persistence.typed.PersistenceId\n\nobject UserNameEntity {\n  // Commands\n  sealed trait Command\n  case class SetName(newName: String) extends Command\n  case object PrintName extends Command\n\n  // Events\n  sealed trait Event\n  case class NameSet(newName: String) extends Event\n\n  // State\n  final case class State(name: String)\n\n  def apply(entityId: String): Behavior[Command] = EventSourcedBehavior[\n    Command,\n    Event,\n    State\n  ](\n    persistenceId = PersistenceId.ofUniqueId(entityId),\n    emptyState = State(\"\"),\n    commandHandler = (state, cmd) => cmd match {\n      case SetName(n) =>\n        Effect.persist(NameSet(n))\n      case PrintName =>\n        println(s\"Current name is '${state.name}'\")\n        Effect.none\n    },\n    eventHandler = (state, evt) => evt match {\n      case NameSet(n) => state.copy(name = n)\n    }\n  )\n}\n\nobject TypedPersistenceUserNameApp extends App {\n  val system = ActorSystem(UserNameEntity(\"UserEntity1\"), \"UserSystem\")\n\n  system ! UserNameEntity.SetName(\"Alice\")\n  system ! UserNameEntity.PrintName\n\n  Thread.sleep(1000)\n  system.terminate()\n}\n"
-      }
-    ]
-  },
-  {
-    "conversations": [
-      {
-        "from": "human",
-        "value": "Use a typed Actor plus a Source.actorRef to build a stream where the actor pushes elements into the stream for processing."
-      },
-      {
-        "from": "assistant",
-        "value": "// TypedActorToStream.scala\n\nimport akka.actor.typed.scaladsl.Behaviors\nimport akka.actor.typed.{ActorRef, ActorSystem, Behavior}\nimport akka.stream.scaladsl.{Sink, Source}\nimport akka.actor.typed.scaladsl.adapter._\nimport akka.{Done, NotUsed}\nimport scala.concurrent.Future\nimport scala.concurrent.ExecutionContext.Implicits.global\n\nobject PusherActor {\n  sealed trait Command\n  case class Push(value: String) extends Command\n  case object Complete extends Command\n\n  def apply(sinkRef: ActorRef[String]): Behavior[Command] = Behaviors.receive { (ctx, cmd) =>\n    cmd match {\n      case Push(value) =>\n        sinkRef ! value\n        Behaviors.same\n      case Complete =>\n        // Send a special completion signal is not directly possible with plain actorRef. This is a simplified version.\n        ctx.log.info(\"PusherActor: Asked to complete the stream.\")\n        Behaviors.stopped\n    }\n  }\n}\n\nobject TypedActorToStreamApp extends App {\n  val system = ActorSystem(Behaviors.empty, \"PusherSystem\")\n  val bufferSize = 10\n\n  // Create a source that is driven by an actor\n  val (actorRef, source) = Source.actorRef[String](\n    completionMatcher = PartialFunction.empty,\n    failureMatcher = PartialFunction.empty,\n    bufferSize = bufferSize,\n    overflowStrategy = akka.stream.OverflowStrategy.fail\n  )(system.classicSystem)\n\n  val sink = Sink.foreach[String](elem => println(s\"Stream got: $elem\"))\n\n  val runnable = source.toMat(sink)(akka.stream.scaladsl.Keep.run)\n  val streamRef = runnable\n\n  // Now we spawn a typed actor that can push elements into the Source\n  val pusher = system.systemActorOf(PusherActor(actorRef.toTyped), \"pusher\")\n\n  pusher ! PusherActor.Push(\"Hello1\")\n  pusher ! PusherActor.Push(\"Hello2\")\n\n  Thread.sleep(500)\n  pusher ! PusherActor.Complete\n\n  Thread.sleep(1000)\n  system.terminate()\n}\n"
-      }
-    ]
-  },
-  {
-    "conversations": [
-      {
-        "from": "human",
-        "value": "Demonstrate a typed persistent actor that uses Tagging for event tags, so they can be consumed by a projection."
-      },
-      {
-        "from": "assistant",
-        "value": "// TaggedPersistentActor.scala\n\nimport akka.actor.typed.scaladsl.{Behaviors, EventSourcedBehavior}\nimport akka.actor.typed.{ActorSystem, Behavior}\nimport akka.persistence.typed.PersistenceId\nimport akka.persistence.typed.scaladsl.{EventSourcedBehavior, ReplyEffect}\nimport akka.persistence.typed.scaladsl.RetentionCriteria\nimport akka.persistence.typed.scaladsl.EventSourcedBehavior.CommandHandler\nimport akka.persistence.typed.scaladsl.{Effect, ReplicaId}\nimport akka.persistence.typed.scaladsl.EventSourcedBehavior.\nimport akka.persistence.typed.Tagged\n\nobject TaggedPersistentActor {\n  sealed trait Command\n  case object Increment extends Command\n  case object PrintState extends Command\n\n  sealed trait Event\n  case object Incremented extends Event\n\n  case class State(count: Int)\n\n  private val MyTag = Set(\"counter-tag\")\n\n  def apply(entityId: String): Behavior[Command] = EventSourcedBehavior[\n    Command,\n    Event,\n    State\n  ](\n    persistenceId = PersistenceId.ofUniqueId(entityId),\n    emptyState = State(0),\n    commandHandler = (state, command) => command match {\n      case Increment => Effect.persist(Incremented)\n      case PrintState =>\n        println(s\"TaggedPersistentActor state = ${state.count}\")\n        Effect.none\n    },\n    eventHandler = (state, evt) => evt match {\n      case Incremented => state.copy(count = state.count + 1)\n    }\n  ).withTagger(event =>\n    event match {\n      case Incremented => MyTag\n    }\n  )\n}\n\nobject TaggedPersistentActorApp extends App {\n  val system = ActorSystem(TaggedPersistentActor(\"tag-entity\"), \"TaggedPersistenceSystem\")\n\n  system ! TaggedPersistentActor.Increment\n  system ! TaggedPersistentActor.Increment\n  system ! TaggedPersistentActor.PrintState\n\n  Thread.sleep(1000)\n  system.terminate()\n}\n"
-      }
-    ]
-  },
-  {
-    "conversations": [
-      {
-        "from": "human",
-        "value": "Build a typed actor system that logs cluster membership changes with akka.cluster.typed.Subscribe to MemberRemoved and MemberUp."
-      },
-      {
-        "from": "assistant",
-        "value": "// TypedClusterMembershipExample.scala\n\nimport akka.actor.typed.scaladsl.Behaviors\nimport akka.actor.typed.{ActorSystem, Behavior}\nimport akka.cluster.typed.{Cluster, MemberRemoved, MemberUp, Subscribe}\nimport akka.cluster.Member\n\nobject MembershipWatcher {\n  sealed trait Command\n  private final case class MemberUpEvent(event: MemberUp) extends Command\n  private final case class MemberRemovedEvent(event: MemberRemoved) extends Command\n\n  def apply(): Behavior[Command] = Behaviors.setup { ctx =>\n    val cluster = Cluster(ctx.system)\n    cluster.subscriptions ! Subscribe(ctx.self, classOf[MemberUp])\n    cluster.subscriptions ! Subscribe(ctx.self, classOf[MemberRemoved])\n\n    Behaviors.receiveMessage {\n      case MemberUpEvent(MemberUp(m)) =>\n        ctx.log.info(s\"Member is up: ${m.address}\")\n        Behaviors.same\n      case MemberRemovedEvent(MemberRemoved(m, _)) =>\n        ctx.log.info(s\"Member removed: ${m.address}\")\n        Behaviors.same\n    }\n  }.receiveSignal {\n    case (ctx, evt) => Behaviors.same\n  }\n}\n\nobject TypedClusterMembershipExampleApp extends App {\n  import MembershipWatcher._\n\n  val system = ActorSystem(\n    Behaviors.setup[Nothing] { ctx =>\n      ctx.spawn(MembershipWatcher(), \"membershipWatcher\")\n      Behaviors.empty\n    },\n    \"MembershipClusterSystem\"\n  )\n\n  Thread.sleep(10000)\n  system.terminate()\n}\n"
-      }
-    ]
-  },
-  {
-    "conversations": [
-      {
-        "from": "human",
-        "value": "Create a typed Streams example that uses a RestartSource to automatically restart on failures."
-      },
-      {
-        "from": "assistant",
-        "value": "// RestartSourceExample.scala\n\nimport akka.actor.ActorSystem\nimport akka.stream.ActorMaterializer\nimport akka.stream.scaladsl.{RestartSource, Sink, Source}\nimport scala.concurrent.duration._\nimport scala.concurrent.ExecutionContextExecutor\nimport scala.util.Random\n\nobject RestartSourceExample extends App {\n  implicit val system: ActorSystem = ActorSystem(\"RestartSourceSystem\")\n  implicit val ec: ExecutionContextExecutor = system.dispatcher\n  implicit val mat: ActorMaterializer = ActorMaterializer()(system)\n\n  val failingSource = Source(1 to 10).map { n =>\n    if (Random.nextBoolean()) n else throw new RuntimeException(\"Random fail!\")\n  }\n\n  val restarting = RestartSource.onFailuresWithBackoff(\n    minBackoff = 1.second,\n    maxBackoff = 5.seconds,\n    randomFactor = 0.2\n  ) { () => failingSource }\n\n  val done = restarting.runWith(Sink.foreach(elem => println(s\"Got element: $elem\")))\n\n  done.onComplete(_ => system.terminate())\n}\n"
-      }
-    ]
-  },
-  {
-    "conversations": [
-      {
-        "from": "human",
-        "value": "Show a typed cluster node that uses Distributed Data to store a GSet of string items, and logs changes."
-      },
-      {
-        "from": "assistant",
-        "value": "// TypedClusterDDAGSetExample.scala\n\nimport akka.actor.typed.scaladsl.Behaviors\nimport akka.actor.typed.{ActorRef, ActorSystem, Behavior}\nimport akka.cluster.ddata.typed.scaladsl.{DistributedData, Replicator}\nimport akka.cluster.ddata.{GSet, GSetKey}\nimport akka.{Done, NotUsed}\n\nobject GSetManager {\n  sealed trait Command\n  case class AddItem(item: String) extends Command\n  private case class InternalUpdateResponse(rsp: Replicator.UpdateResponse[GSet[String]]) extends Command\n\n  private val Key = GSetKey[String](\"myGSet\")\n\n  def apply(): Behavior[Command] = Behaviors.setup { ctx =>\n    val replicator = DistributedData(ctx.system).replicator\n\n    Behaviors.receiveMessage {\n      case AddItem(item) =>\n        replicator ! Replicator.Update(Key, GSet.empty[String], Replicator.WriteLocal, ctx.messageAdapter(InternalUpdateResponse)) {\n          set => set + item\n        }\n        Behaviors.same\n      case InternalUpdateResponse(rsp) =>\n        rsp match {\n          case Replicator.UpdateSuccess(_, _) =>\n            ctx.log.info(\"GSet update success.\")\n          case other =>\n            ctx.log.warn(s\"GSet update failed: $other\")\n        }\n        Behaviors.same\n    }\n  }\n}\n\nobject TypedClusterDDAGSetExampleApp extends App {\n  val system = ActorSystem(GSetManager(), \"DDAGSetSystem\")\n\n  system ! GSetManager.AddItem(\"Hello\")\n  system ! GSetManager.AddItem(\"World\")\n\n  Thread.sleep(3000)\n  system.terminate()\n}\n"
-      }
-    ]
-  },
-  {
-    "conversations": [
-      {
-        "from": "human",
-        "value": "Demonstrate an Akka Streams example that uses a Broadcast to split the flow into two parallel consumers."
-      },
-      {
-        "from": "assistant",
-        "value": "// BroadcastStreamExample.scala\n\nimport akka.actor.ActorSystem\nimport akka.stream.{ActorMaterializer, ClosedShape}\nimport akka.stream.scaladsl.{Broadcast, GraphDSL, Sink, Source}\nimport scala.concurrent.ExecutionContextExecutor\n\nobject BroadcastStreamExample extends App {\n  implicit val system: ActorSystem = ActorSystem(\"BroadcastStreamSystem\")\n  implicit val ec: ExecutionContextExecutor = system.dispatcher\n  implicit val mat: ActorMaterializer = ActorMaterializer()(system)\n\n  val source = Source(1 to 5)\n  val sink1 = Sink.foreach[Int](x => println(s\"Sink1 got: $x\"))\n  val sink2 = Sink.foreach[Int](x => println(s\"Sink2 got: $x\"))\n\n  val graph = akka.stream.scaladsl.RunnableGraph.fromGraph(GraphDSL.create() { implicit builder =>\n    import GraphDSL.Implicits._\n\n    val broadcast = builder.add(Broadcast[Int](2))\n\n    source ~> broadcast.in\n    broadcast.out(0) ~> sink1\n    broadcast.out(1) ~> sink2\n\n    ClosedShape\n  })\n\n  graph.run()\n\n  Thread.sleep(1000)\n  system.terminate()\n}\n"
-      }
-    ]
-  },
-  {
-    "conversations": [
-      {
-        "from": "human",
-        "value": "Implement a typed actor that uses a stable partitioned cluster sharding strategy, grouping entity IDs by their numeric mod."
-      },
-      {
-        "from": "assistant",
-        "value": "// TypedClusterShardingModExample.scala\n\nimport akka.actor.typed.scaladsl.Behaviors\nimport akka.actor.typed.{ActorSystem, Behavior}\nimport akka.cluster.sharding.typed.scaladsl.{ClusterSharding, Entity, EntityTypeKey}\n\nobject ModEntity {\n  sealed trait Command { def entityId: String }\n  case class Process(entityId: String, payload: String) extends Command\n\n  def apply(id: String): Behavior[Command] = Behaviors.receive { (ctx, cmd) =>\n    cmd match {\n      case Process(_, payload) =>\n        ctx.log.info(s\"ModEntity [$id] received: $payload\")\n        Behaviors.same\n    }\n  }\n}\n\nobject TypedClusterShardingModExampleApp extends App {\n  import ModEntity._\n\n  val TypeKey = EntityTypeKey[Command](\"ModEntity\")\n\n  val system = ActorSystem(Behaviors.setup[Nothing] { ctx =>\n    val sharding = ClusterSharding(ctx.system)\n\n    // Shard by mod of entityId integer, for instance\n    def extractShardId(cmd: Command): String = {\n      val num = cmd.entityId.filter(_.isDigit).toIntOption.getOrElse(0)\n      (num % 10).toString\n    }\n\n    sharding.init(\n      Entity(TypeKey)(createBehavior = entityContext => ModEntity(entityContext.entityId))\n        .withMessageExtractor(\n          shardIdExtractor = extractShardId,\n          entityIdExtractor = _.entityId\n        )\n    )\n\n    Behaviors.empty\n  }, \"ModShardCluster\")\n\n  // In a real cluster, you'd send messages with entityId.\n  Thread.sleep(10000)\n  system.terminate()\n}\n"
-      }
-    ]
-  },
-  {
-    "conversations": [
-      {
-        "from": "human",
-        "value": "Show an example typed actor that, on a 'startHttpServer' message, spins up a minimal Akka HTTP server, then logs requests."
-      },
-      {
-        "from": "assistant",
-        "value": "// TypedActorHttpServerOnDemand.scala\n\nimport akka.actor.typed.scaladsl.Behaviors\nimport akka.actor.typed.{ActorSystem, Behavior}\nimport akka.http.scaladsl.Http\nimport akka.http.scaladsl.server.Directives._\nimport akka.http.scaladsl.model.StatusCodes\nimport akka.stream.Materializer\nimport scala.concurrent.ExecutionContext\nimport scala.util.{Failure, Success}\n\nobject OnDemandHttpActor {\n  sealed trait Command\n  case object StartHttpServer extends Command\n\n  def apply(): Behavior[Command] = Behaviors.setup { context =>\n    implicit val classicSystem = context.system.classicSystem\n    implicit val mat: Materializer = Materializer(classicSystem)\n    implicit val ec: ExecutionContext = context.executionContext\n\n    val route = path(\"test\") {\n      get {\n        context.log.info(\"Request on /test\")\n        complete(StatusCodes.OK -> \"Hello from typed actor!\")\n      }\n    }\n\n    Behaviors.receiveMessage {\n      case StartHttpServer =>\n        val bindingFuture = Http()(classicSystem).newServerAt(\"localhost\", 9000).bind(route)\n        bindingFuture.onComplete {\n          case Success(binding) => context.log.info(s\"HTTP server running at ${binding.localAddress}\")\n          case Failure(ex) => context.log.error(s\"Failed to bind HTTP server: ${ex.getMessage}\")\n        }\n        Behaviors.same\n    }\n  }\n}\n\nobject TypedActorHttpServerOnDemandApp extends App {\n  val system = ActorSystem(OnDemandHttpActor(), \"OnDemandHttpSystem\")\n  system ! OnDemandHttpActor.StartHttpServer\n\n  Thread.sleep(30000)\n  system.terminate()\n}\n"
-      }
-    ]
-  },
-  {
-    "conversations": [
-      {
-        "from": "human",
-        "value": "Construct a typed Streams example reading lines from stdin with StreamConverters, logging them in the console."
-      },
-      {
-        "from": "assistant",
-        "value": "// StdinStreamTyped.scala\n\nimport akka.actor.ActorSystem\nimport akka.stream.ActorMaterializer\nimport akka.stream.scaladsl.{Sink, StreamConverters}\nimport scala.concurrent.ExecutionContextExecutor\n\nobject StdinStreamTyped extends App {\n  implicit val system: ActorSystem = ActorSystem(\"StdinStreamSystem\")\n  implicit val ec: ExecutionContextExecutor = system.dispatcher\n  implicit val mat: ActorMaterializer = ActorMaterializer()(system)\n\n  // Convert standard input lines into a stream\n  val source = StreamConverters.fromInputStream(() => System.in)\n    .via(akka.stream.scaladsl.Framing.delimiter(\n      java.nio.ByteBuffer.wrap(\"\\n\".getBytes),\n      maximumFrameLength = 256,\n      allowTruncation = true\n    )).map(_.utf8String)\n\n  val done = source.runWith(Sink.foreach(line => println(s\"You typed: $line\")))\n\n  // Terminate once the stream completes (EOF)\n  done.onComplete(_ => system.terminate())\n}\n"
-      }
-    ]
-  },
-  {
-    "conversations": [
-      {
-        "from": "human",
-        "value": "Write a typed example using an EventSourcedBehavior that tracks a shopping cart, applying item added events."
-      },
-      {
-        "from": "assistant",
-        "value": "// TypedPersistenceShoppingCart.scala\n\nimport akka.actor.typed.scaladsl.{Behaviors, EventSourcedBehavior}\nimport akka.actor.typed.{ActorSystem, Behavior}\nimport akka.persistence.typed.PersistenceId\n\nobject ShoppingCart {\n  // Commands\n  sealed trait Command\n  case class AddItem(item: String) extends Command\n  case object ShowCart extends Command\n\n  // Events\n  sealed trait Event\n  case class ItemAdded(item: String) extends Event\n\n  // State\n  final case class Cart(items: List[String]) {\n    def add(item: String): Cart = copy(items = item :: items)\n  }\n\n  def apply(entityId: String): Behavior[Command] = EventSourcedBehavior[\n    Command,\n    Event,\n    Cart\n  ](\n    persistenceId = PersistenceId.ofUniqueId(entityId),\n    emptyState = Cart(Nil),\n    commandHandler = (state, cmd) => cmd match {\n      case AddItem(item) =>\n        EventSourcedBehavior.Effect.persist(ItemAdded(item))\n      case ShowCart =>\n        println(s\"Current cart items: ${state.items.reverse.mkString(\", \")}\")\n        EventSourcedBehavior.Effect.none\n    },\n    eventHandler = (state, evt) => evt match {\n      case ItemAdded(item) => state.add(item)\n    }\n  )\n}\n\nobject TypedPersistenceShoppingCartApp extends App {\n  val system = ActorSystem(ShoppingCart(\"cart1\"), \"ShoppingCartSystem\")\n\n  system ! ShoppingCart.AddItem(\"Apple\")\n  system ! ShoppingCart.AddItem(\"Banana\")\n  system ! ShoppingCart.ShowCart\n\n  Thread.sleep(2000)\n  system.terminate()\n}\n"
-      }
-    ]
-  },
-  {
-    "conversations": [
-      {
-        "from": "human",
-        "value": "Demonstrate an Akka Streams example that groups elements in groups of 2 and prints them, using groupBy."
-      },
-      {
-        "from": "assistant",
-        "value": "// GroupByStreamExample.scala\n\nimport akka.actor.ActorSystem\nimport akka.stream.ActorMaterializer\nimport akka.stream.scaladsl.{Sink, Source}\nimport scala.concurrent.ExecutionContextExecutor\n\nobject GroupByStreamExample extends App {\n  implicit val system: ActorSystem = ActorSystem(\"GroupBySystem\")\n  implicit val ec: ExecutionContextExecutor = system.dispatcher\n  implicit val mat: ActorMaterializer = ActorMaterializer()(system)\n\n  // source of pairs of (key, value)\n  val source = Source(List((1, \"apple\"), (2, \"banana\"), (1, \"cherry\"), (2, \"date\")))\n\n  // groupBy on the first field\n  val done = source\n    .groupBy(2, _._1)\n    .runForeach(entry => println(s\"Group #${entry._1} => ${entry._2}\"))\n\n  done.onComplete(_ => system.terminate())\n}\n"
-      }
-    ]
-  },
-  {
-    "conversations": [
-      {
-        "from": "human",
-        "value": "Use Akka HTTP client in a typed actor to post JSON data to a server, showing how to construct the request entity."
-      },
-      {
-        "from": "assistant",
-        "value": "// TypedHttpPostActor.scala\n\nimport akka.actor.typed.scaladsl.Behaviors\nimport akka.actor.typed.{ActorSystem, Behavior}\nimport akka.http.scaladsl.Http\nimport akka.http.scaladsl.model._\nimport akka.http.scaladsl.model.ContentTypes.`application/json`\nimport akka.stream.Materializer\nimport scala.concurrent.ExecutionContext\nimport scala.util.{Failure, Success}\n\nobject HttpPostActor {\n  sealed trait Command\n  case object SendPost extends Command\n\n  def apply(): Behavior[Command] = Behaviors.setup { context =>\n    implicit val classicSystem = context.system.classicSystem\n    implicit val mat: Materializer = Materializer(classicSystem)\n    implicit val ec: ExecutionContext = context.executionContext\n\n    val jsonString = \"\"\"{\"some\": \"data\"}\"\"\"\n    val entity = HttpEntity(`application/json`, jsonString)\n\n    Behaviors.receiveMessage {\n      case SendPost =>\n        val responseF = Http()(classicSystem).singleRequest(HttpRequest(\n          method = HttpMethods.POST,\n          uri = \"https://httpbin.org/post\",\n          entity = entity\n        ))\n        responseF.onComplete {\n          case Success(res) => context.log.info(s\"Response status: ${res.status}\")\n          case Failure(ex) => context.log.error(s\"Failed: ${ex.getMessage}\")\n        }\n        Behaviors.same\n    }\n  }\n}\n\nobject TypedHttpPostActorApp extends App {\n  val system = ActorSystem(HttpPostActor(), \"HttpPostSystem\")\n  system ! HttpPostActor.SendPost\n\n  Thread.sleep(3000)\n  system.terminate()\n}\n"
-      }
-    ]
-  },
-  {
-    "conversations": [
-      {
-        "from": "human",
-        "value": "Build a typed Streams example that merges multiple sources, then filters out even numbers, and prints the rest."
-      },
-      {
-        "from": "assistant",
-        "value": "// MergeFilterStreamTyped.scala\n\nimport akka.actor.ActorSystem\nimport akka.stream.ActorMaterializer\nimport akka.stream.scaladsl.{Merge, Sink, Source}\nimport scala.concurrent.ExecutionContextExecutor\n\nobject MergeFilterStreamTyped extends App {\n  implicit val system: ActorSystem = ActorSystem(\"MergeFilterSystem\")\n  implicit val ec: ExecutionContextExecutor = system.dispatcher\n  implicit val mat: ActorMaterializer = ActorMaterializer()(system)\n\n  val source1 = Source(1 to 3)\n  val source2 = Source(4 to 6)\n\n  val merged = Source.combine(source1, source2)(Merge(_))\n  val filtered = merged.filter(_ % 2 != 0)\n\n  val sink = Sink.foreach[Int](n => println(s\"Odd number: $n\"))\n\n  filtered.runWith(sink)\n\n  Thread.sleep(1000)\n  system.terminate()\n}\n"
-      }
-    ]
-  },
-  {
-    "conversations": [
-      {
-        "from": "human",
-        "value": "Illustrate a typed cluster using classic contact-points for seed nodes, just logging cluster join events from the config."
-      },
-      {
-        "from": "assistant",
-        "value": "// TypedClusterSeedsExample.scala\n\nimport akka.actor.typed.scaladsl.Behaviors\nimport akka.actor.typed.{ActorSystem, Behavior}\nimport akka.cluster.typed.{Cluster, SelfUp, Subscribe}\nimport akka.cluster.Member\n\nobject SimpleClusterListener {\n  sealed trait Command\n  private case class UpEvent(evt: SelfUp) extends Command\n\n  def apply(): Behavior[Command] = Behaviors.setup { context =>\n    val cluster = Cluster(context.system)\n    cluster.subscriptions ! Subscribe(context.self, classOf[SelfUp])\n\n    Behaviors.receiveMessage {\n      case UpEvent(SelfUp(member)) =>\n        context.log.info(s\"Node has joined the cluster: ${member.address}\")\n        Behaviors.same\n    }\n  }\n}\n\nobject TypedClusterSeedsExampleApp extends App {\n  // In application.conf, define seed-nodes with classic contact-points.\n  val system = ActorSystem(\n    Behaviors.setup[Nothing] { ctx =>\n      ctx.spawn(SimpleClusterListener(), \"clusterListener\")\n      Behaviors.empty\n    },\n    \"SeedClusterSystem\"\n  )\n\n  Thread.sleep(30000)\n  system.terminate()\n}\n"
-      }
-    ]
-  },
-  {
-    "conversations": [
-      {
-        "from": "human",
-        "value": "Show a typed streams example with a custom Graph stage that doubles incoming integers."
-      },
-      {
-        "from": "assistant",
-        "value": "// DoubleFlowGraphStageExample.scala\n\nimport akka.actor.ActorSystem\nimport akka.stream.{ActorMaterializer, Attributes, FlowShape, Inlet, Outlet}\nimport akka.stream.stage.{GraphStage, GraphStageLogic, InHandler, OutHandler}\nimport akka.stream.scaladsl.{Keep, RunnableGraph, Sink, Source}\nimport scala.concurrent.ExecutionContextExecutor\n\nclass DoublingStage extends GraphStage[FlowShape[Int, Int]] {\n  val in: Inlet[Int] = Inlet(\"DoublingStage.in\")\n  val out: Outlet[Int] = Outlet(\"DoublingStage.out\")\n\n  override val shape: FlowShape[Int, Int] = FlowShape(in, out)\n\n  override def createLogic(inheritedAttributes: Attributes): GraphStageLogic = new GraphStageLogic(shape) {\n    setHandler(in, new InHandler {\n      override def onPush(): Unit = {\n        val elem = grab(in)\n        push(out, elem * 2)\n      }\n    })\n\n    setHandler(out, new OutHandler {\n      override def onPull(): Unit = pull(in)\n    })\n  }\n}\n\nobject DoubleFlowGraphStageExample extends App {\n  implicit val system: ActorSystem = ActorSystem(\"DoubleGraphStageSystem\")\n  implicit val ec: ExecutionContextExecutor = system.dispatcher\n  implicit val mat: ActorMaterializer = ActorMaterializer()(system)\n\n  val source = Source(1 to 5)\n  val doublingFlow = new DoublingStage\n  val sink = Sink.foreach[Int](x => println(s\"Doubled: $x\"))\n\n  val runnable = source.via(doublingFlow).toMat(sink)(Keep.right)\n  runnable.run()\n\n  Thread.sleep(500)\n  system.terminate()\n}\n"
-      }
-    ]
-  },
-  {
-    "conversations": [
-      {
-        "from": "human",
-        "value": "Make a typed cluster Singleton that manages a GCounter via distributed data, demonstrating a single node responsible for updates."
-      },
-      {
-        "from": "assistant",
-        "value": "// TypedClusterSingletonGCounter.scala\n\nimport akka.actor.typed.scaladsl.Behaviors\nimport akka.actor.typed.{ActorRef, ActorSystem, Behavior}\nimport akka.cluster.typed.{ClusterSingleton, SingletonActor}\nimport akka.cluster.ddata.GCounter\nimport akka.cluster.ddata.typed.scaladsl.{DistributedData, Replicator}\nimport akka.cluster.ddata.{GCounterKey}\nimport akka.actor.typed.scaladsl.adapter._\n\nobject GCounterSingleton {\n  sealed trait Command\n  case object Increment extends Command\n  private case class InternalUpdate(rsp: Replicator.UpdateResponse[GCounter]) extends Command\n\n  private val Key = GCounterKey(\"singletonGCounter\")\n\n  def apply(): Behavior[Command] = Behaviors.setup { ctx =>\n    val replicator = DistributedData(ctx.system).replicator\n    implicit val node = DistributedData(ctx.system).selfUniqueAddress\n\n    Behaviors.receiveMessage {\n      case Increment =>\n        replicator ! Replicator.Update(Key, GCounter.empty, Replicator.WriteLocal, ctx.messageAdapter(InternalUpdate)) {\n          _.increment(node, 1)\n        }\n        Behaviors.same\n      case InternalUpdate(rsp) =>\n        ctx.log.info(s\"Update response: $rsp\")\n        Behaviors.same\n    }\n  }\n}\n\nobject TypedClusterSingletonGCounterApp extends App {\n  val system = ActorSystem(Behaviors.empty, \"SingletonGCounterCluster\")\n\n  val singletonManager = ClusterSingleton(system)\n  val singletonRef = singletonManager.init(\n    SingletonActor(\n      GCounterSingleton(),\n      \"GCounterSingleton\"\n    )\n  )\n\n  // Send increments to the singleton\n  singletonRef ! GCounterSingleton.Increment\n  singletonRef ! GCounterSingleton.Increment\n\n  Thread.sleep(3000)\n  system.terminate()\n}\n"
-      }
-    ]
-  },
-  {
-    "conversations": [
-      {
-        "from": "human",
-        "value": "Provide an example of a typed actor that uses a stash for typed messages, stashing until a 'ready' command is received."
-      },
-      {
-        "from": "assistant",
-        "value": "// TypedStashExample.scala\n\nimport akka.actor.typed.scaladsl.{Behaviors, StashBuffer}\nimport akka.actor.typed.{ActorSystem, Behavior}\n\nobject StashActor {\n  sealed trait Command\n  case object Ready extends Command\n  case class Payload(msg: String) extends Command\n\n  def apply(): Behavior[Command] = Behaviors.withStash(10) { buffer =>\n    Behaviors.setup { context =>\n\n      def unstashedBehavior: Behavior[Command] = Behaviors.receiveMessage {\n        case Payload(m) =>\n          context.log.info(s\"Processing payload: $m\")\n          Behaviors.same\n        case Ready =>\n          context.log.info(\"Already in ready state.\")\n          Behaviors.same\n      }\n\n      // Initially not ready\n      val initial: Behavior[Command] = Behaviors.receiveMessage {\n        case Ready =>\n          context.log.info(\"Becoming ready, unstashing messages.\")\n          buffer.unstashAll(unstashedBehavior)\n        case other =>\n          context.log.info(\"Stashing message until we get Ready.\")\n          buffer.stash(other)\n          Behaviors.same\n      }\n\n      initial\n    }\n  }\n}\n\nobject TypedStashExampleApp extends App {\n  val system = ActorSystem(StashActor(), \"StashSystem\")\n\n  system ! StashActor.Payload(\"msg1\")\n  system ! StashActor.Payload(\"msg2\")\n  system ! StashActor.Ready\n  system ! StashActor.Payload(\"msg3\")\n\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+        "value": "// StdinStreamTyped.scala\n// This example reads lines from standard input using a stream and prints each line.\n\nimport akka.actor.typed.scaladsl.Behaviors\nimport akka.actor.typed.{ActorSystem, Behavior}\nimport akka.stream.scaladsl.{Framing, Sink, StreamConverters}\nimport akka.util.ByteString\nimport akka.stream.SystemMaterializer\nimport scala.concurrent.ExecutionContext\nimport akka.{Done, NotUsed}\nimport scala.concurrent.Future\n\nobject StdinStreamApp extends App {\n  // Create a simple root behavior that sets up the stream\n  val root: Behavior[Nothing] = Behaviors.setup[Nothing] { context =>\n    implicit val mat = SystemMaterializer(context.system).materializer\n    implicit val ec: ExecutionContext = context.executionContext\n\n    // Create a source from System.in\n    val source: Source[String, NotUsed] = StreamConverters.fromInputStream(() => System.in)\n      .via(\n        Framing.delimiter(\n          ByteString(\"\\n\"),         // Use ByteString for the newline delimiter\n          maximumFrameLength = 256,\n          allowTruncation = true\n        )\n      )\n      .map(_.utf8String)             // Convert bytes to UTF-8 string\n\n    // Sink that prints each line\n    val sink: Sink[String, Future[Done]] = Sink.foreach(line => println(s\"You typed: $line\"))\n\n    // Run the stream\n    val done: Future[Done] = source.runWith(sink)\n    done.onComplete { _ =>\n      context.system.terminate()\n    }\n\n    Behaviors.empty\n  }\n\n  val system = ActorSystem(root, \"StdinStreamSystem\")\n}\n"
       }
     ]
   }
