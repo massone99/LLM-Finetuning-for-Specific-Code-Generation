@@ -141,6 +141,11 @@ def parse_args():
         default="../res/outputs",
         help="Directory for output files",
     )
+    parser.add_argument(
+        "--grid-search",
+        action="store_true",
+        help="Enable grid search for hyperparameter tuning",
+    )
     return parser.parse_args()
 
 def process_loaded_model(args, model, output_dir, tokenizer, train_dataset_size) -> None:
@@ -244,150 +249,143 @@ def process_trained_model(args, max_seq_length, model, output_dir, tokenizer, tr
     file_logger.write_and_print(train_metrics_path_str)
 
 
-# For fine tuning:
-#   poetry run python src/train.py
-# For loading fine-tuned model:
-#   poetry run python src/train.py --load-model ./res/outputs/finetuned_model
-def main():
+def execute_grid_search(args, model, tokenizer, max_seq_length, train_dataset_size):
+    """Execute grid search training with different parameter combinations."""
+    combinations = get_grid_combinations()
+    print(f"Starting grid search with {len(combinations)} combinations...")
 
+    best_execution_rate = 0
+    best_params = None
+
+    for i, (peft_updates, training_updates) in enumerate(combinations):
+        print(f"\nRunning combination {i+1}/{len(combinations)}")
+        print(f"PEFT params: {peft_updates}")
+        print(f"Training params: {training_updates}")
+
+        combo_output_dir = os.path.join(
+            args.output_dir,
+            f"combo_{i+1}_r{peft_updates['r']}_alpha{peft_updates['lora_alpha']}_"
+            f"bs{training_updates['per_device_train_batch_size']}_"
+            f"ep{training_updates['num_train_epochs']}_"
+            f"lr{training_updates['learning_rate']}"
+        )
+
+        try:
+            # Load fresh model for each combination
+            current_model, current_tokenizer = load_model_and_tokenizer(
+                model_name="unsloth/Llama-3.2-3B-Instruct",
+                max_seq_length=max_seq_length
+            )
+
+            current_peft_params = get_peft_params(peft_updates)
+            current_training_params = get_training_params(training_updates)
+
+            process_trained_model(
+                args, max_seq_length, current_model, combo_output_dir,
+                current_tokenizer, train_dataset_size,
+                current_peft_params, current_training_params
+            )
+
+            # Process evaluation results
+            eval_results_path = os.path.join(combo_output_dir, "evaluation_results.json")
+            with open(eval_results_path, "r") as f:
+                eval_results = json.load(f)
+            
+            execution_metrics = eval_results.get("execution_check", {})
+            running_snippets = execution_metrics.get("successful_runs", 0)
+            total_snippets = execution_metrics.get("total_snippets", 1)
+            execution_rate = running_snippets / total_snippets if total_snippets > 0 else 0
+            
+            print(f"Execution rate: {execution_rate:.2%} ({running_snippets}/{total_snippets})")
+            print(f"BLEU score: {eval_results.get('avg_bleu', 0)::.4f}")
+            
+            if execution_rate > best_execution_rate:
+                best_execution_rate = execution_rate
+                best_params = {
+                    "peft": peft_updates,
+                    "training": training_updates,
+                    "execution_rate": execution_rate,
+                    "running_snippets": running_snippets,
+                    "total_snippets": total_snippets,
+                    "bleu": eval_results.get("avg_bleu", 0),
+                    "timestamp": datetime.now().isoformat()
+                }
+        
+        except Exception as e:
+            print(f"Error in combination {i+1}: {str(e)}")
+            continue
+
+    return best_params
+
+def save_grid_search_results(output_dir: str, best_params: dict) -> None:
+    """Save grid search results to a JSON file."""
+    if not best_params:
+        return
+
+    print("\nBest performing combination:")
+    print(f"Execution rate: {best_params['execution_rate']:.2%} "
+          f"({best_params['running_snippets']}/{best_params['total_snippets']})")
+    print(f"BLEU score: {best_params['bleu']:.4f}")
+    print(f"PEFT parameters: {best_params['peft']}")
+    print(f"Training parameters: {best_params['training']}")
+
+    results_dir = os.path.join(output_dir, "grid_search_results")
+    os.makedirs(results_dir, exist_ok=True)
+    
+    results_file = os.path.join(
+        results_dir, 
+        f'best_params_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json'
+    )
+    
+    with open(results_file, "w") as f:
+        json.dump(best_params, f, indent=2)
+    
+    print(f"\nBest parameters saved to: {results_file}")
+
+def main():
+    # Verify working directory
     current_dir = os.path.basename(os.getcwd())
-    assert current_dir == "llama_finetune", "This script must be run from inside the llama_finetune/llama_finetune directory"
     parent_dir = os.path.basename(os.path.dirname(os.getcwd()))
-    assert parent_dir == "llama_finetune", "This script must be run from inside the llama_finetune/llama_finetune directory"
+    if not (current_dir == "llama_finetune" and parent_dir == "llama_finetune"):
+        raise RuntimeError("This script must be run from inside the llama_finetune/llama_finetune directory")
     
     print("Current working directory: CORRECT")
     
-    # Parse command line arguments
-
     args = parse_args()
-
     print("Args parsed!")
 
     # Configuration
     max_seq_length = 4096
     output_dir = args.output_dir
 
-    # Load base model and tokenizer
+    # Load initial model and tokenizer
     model, tokenizer = load_model_and_tokenizer(
-        model_name="unsloth/Llama-3.2-3B-Instruct", max_seq_length=max_seq_length
+        model_name="unsloth/Llama-3.2-3B-Instruct",
+        max_seq_length=max_seq_length
     )
 
-    # Get training dataset size from the original training data
+    # Get training dataset size
     try:
-        train_dataset = load_dataset(
-            "json", data_files=args.dataset_path, split="train"
-        )
+        train_dataset = load_dataset("json", data_files=args.dataset_path, split="train")
         train_dataset_size = len(train_dataset)
     except Exception as e:
         print(f"Warning: Could not determine training dataset size: {e}")
         train_dataset_size = None
 
-    if args.load_model:
-        process_loaded_model(args, model, output_dir, tokenizer, train_dataset_size)
-    else:
-        # Evaluate base model once before starting grid search
-        # print("Evaluating base model before starting grid search...")
-        # from evaluate import evaluate_model
-        # evaluate_model(
-        #     model, tokenizer, args.test_dataset_path, train_dataset_size, "before_finetuning"
-        # )
-
-        # Grid search implementation
-        combinations = get_grid_combinations()
-        print(f"Starting grid search with {len(combinations)} combinations...")
-
-        best_execution_rate = 0
-        best_params = None
-
-        for i, (peft_updates, training_updates) in enumerate(combinations):
-            print(f"\nRunning combination {i+1}/{len(combinations)}")
-            print(f"PEFT params: {peft_updates}")
-            print(f"Training params: {training_updates}")
-
-            # Get complete parameter sets
-            current_peft_params = get_peft_params(peft_updates)
-            current_training_params = get_training_params(training_updates)
-
-            # Update output directory for this combination
-            combo_output_dir = os.path.join(
-                args.output_dir,
-                f"combo_{i+1}_r{peft_updates['r']}_alpha{peft_updates['lora_alpha']}_"
-                f"bs{training_updates['per_device_train_batch_size']}_"
-                f"ep{training_updates['num_train_epochs']}_"
-                f"lr{training_updates['learning_rate']}"
+    try:
+        if args.load_model:
+            process_loaded_model(args, model, output_dir, tokenizer, train_dataset_size)
+        elif args.grid_search:
+            best_params = execute_grid_search(args, model, tokenizer, max_seq_length, train_dataset_size)
+            save_grid_search_results(output_dir, best_params)
+        else:
+            process_trained_model(
+                args, max_seq_length, model, output_dir, tokenizer,
+                train_dataset_size, PEFT_PARAMS, TRAINING_PARAMS
             )
+    except Exception as e:
+        print(f"Error during execution: {str(e)}")
+        raise
 
-            # Load fresh model for each combination
-            model, tokenizer = load_model_and_tokenizer(
-                model_name="unsloth/Llama-3.2-3B-Instruct",
-                max_seq_length=max_seq_length
-            )
-
-            # Train and evaluate
-            try:
-                process_trained_model(
-                    args,
-                    max_seq_length,
-                    model,
-                    combo_output_dir,
-                    tokenizer,
-                    train_dataset_size,
-                    current_peft_params,    # Pass the current parameters
-                    current_training_params,  # Pass the current parameters
-                )
-
-                # Load the evaluation results
-                with open(os.path.join(combo_output_dir, "evaluation_results.json"), "r") as f:
-                    eval_results = json.load(f)
-                
-                # Calculate execution rate
-                running_snippets = eval_results.get("execution_check", {}).get("successful_runs", 0)
-                total_snippets = eval_results.get("execution_check", {}).get("total_snippets", 1)  # avoid div by 0
-                execution_rate = running_snippets / total_snippets if total_snippets > 0 else 0
-                
-                print(f"Execution rate: {execution_rate:.2%} ({running_snippets}/{total_snippets})")
-                print(f"BLEU score: {eval_results.get('avg_bleu', 0):.4f}")
-                
-                if execution_rate > best_execution_rate:
-                    best_execution_rate = execution_rate
-                    best_params = {
-                        "peft": peft_updates,
-                        "training": training_updates,
-                        "execution_rate": execution_rate,
-                        "running_snippets": running_snippets,
-                        "total_snippets": total_snippets,
-                        "bleu": eval_results.get("avg_bleu", 0)
-                    }
-            
-            except Exception as e:
-                print(f"Error in combination {i+1}: {str(e)}")
-                continue
-
-        # Print best results and save to JSON
-        if best_params:
-            print("\nBest performing combination:")
-            print(f"Execution rate: {best_params['execution_rate']:.2%} "
-                  f"({best_params['running_snippets']}/{best_params['total_snippets']})")
-            print(f"BLEU score: {best_params['bleu']:.4f}")
-            print(f"PEFT parameters: {best_params['peft']}")
-            print(f"Training parameters: {best_params['training']}")
-
-            # Add timestamp to best_params
-            best_params["timestamp"] = datetime.now().isoformat()
-            
-            # Create results directory if it doesn't exist
-            results_dir = os.path.join(output_dir, "grid_search_results")
-            os.makedirs(results_dir, exist_ok=True)
-            
-            # Save best params to JSON file
-            results_file = os.path.join(
-                results_dir, 
-                f'best_params_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json'
-            )
-            
-            with open(results_file, "w") as f:
-                json.dump(best_params, f, indent=2)
-            
-            print(f"\nBest parameters saved to: {results_file}")
 if __name__ == "__main__":
     main()
