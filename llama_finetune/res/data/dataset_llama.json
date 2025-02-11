@@ -34,7 +34,7 @@
         "value": "import akka.actor.{Actor, ActorRef, ActorSystem, OneForOneStrategy, Props, SupervisorStrategy, Terminated}\nimport akka.actor.SupervisorStrategy._\n\nimport scala.concurrent.duration._\n\n// Define the ChildActor\nclass ChildActor extends Actor {\n  def receive: Receive = {\n    case \"fail\" => throw new Exception(\"Child failed!\")\n    case msg    => println(s\"Child received: $msg\")\n  }\n}\n\n// Define the SupervisorActor\nclass SupervisorActor extends Actor {\n  override val supervisorStrategy: SupervisorStrategy = OneForOneStrategy(\n    maxNrOfRetries = 3,\n    withinTimeRange = 1.minute\n  ) {\n    case _: Exception => Restart\n  }\n\n  val child: ActorRef = context.actorOf(Props[ChildActor](), \"childActor\")\n\n  def receive: Receive = {\n    case msg =>\n      child.forward(msg)\n  }\n}\n\n// Usage Example\nobject SupervisorApp extends App {\n  val system = ActorSystem(\"SupervisorSystem\")\n  val supervisor = system.actorOf(Props[SupervisorActor](), \"supervisor\")\n\n  supervisor ! \"Hello\"\n  supervisor ! \"fail\"\n  supervisor ! \"Are you there?\"\n}"
       }
     ]
-  },  git pull
+  },
   {
     "conversations": [
       {

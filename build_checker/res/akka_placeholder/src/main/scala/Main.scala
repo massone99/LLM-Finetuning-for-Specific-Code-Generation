@@ -1,30 +1,34 @@
 import akka.actor.{Actor, ActorSystem, Props}
-import akka.routing.RoundRobinPool
 
-case class Work(job: String)
+// Message to increment the counter
+case object Increment
 
-class WorkerActor extends Actor {
+// Actor that keeps track of how many increments it has seen
+class CountingActor extends Actor {
+  // Internal counter, starts at zero
+  private var count = 0
+
   def receive: Receive = {
-    case Work(job) =>
-      println(s"${self.path.name} working on: $job")
+    // If we get Increment, increase count and log it
+    case Increment =>
+      count += 1
+      println(s"CountingActor: Count is now $count")
+    // If unknown message, log that it's unknown
     case _ =>
-      println(s"${self.path.name} received an unknown message.")
+      println("CountingActor: Received unknown message.")
   }
 }
 
-object RouterActorApp extends App {
-  val system = ActorSystem("RouterSystem")
+object CountingActorApp extends App {
+  // Create an ActorSystem named "CountingSystem"
+  val system = ActorSystem("CountingSystem")
+  // Create an instance of CountingActor
+  val counter = system.actorOf(Props[CountingActor](), "counter")
 
-  // Create a router with 3 workers
-  val router = system.actorOf(
-    RoundRobinPool(3).props(Props[WorkerActor]()),
-    "workerRouter"
-  )
-
-  // Send multiple tasks
-  for (i <- 1 to 5) {
-    router ! Work(s"Task-$i")
-  }
+  // Send multiple increments
+  counter ! Increment
+  counter ! Increment
+  counter ! Increment
 
   Thread.sleep(500)
   system.terminate()
