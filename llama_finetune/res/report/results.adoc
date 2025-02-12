@@ -1,0 +1,140 @@
+
+== 
+Evaluation Results (after_finetuning_trainsize265):
+
+
+=== 
+Average BLEU Score: 0.2504
+
+ 
+Detailed results saved to: ../res/data/results/evaluation_results_after_finetuning_trainsize265_20250212.json
+
+ Generated code samples saved to: ../res/data/generated_code/after_finetuning_trainsize265
+
+
+=== Processing dataset inline...
+
+ Sending request to build checker API inline content
+
+
+=== 
+Running examples: 2/17
+
+
+ 
+Training completed in 330.91 seconds
+
+ 
+Training metrics saved to: ../res/outputs/combo_1_r16_alpha64_bs4_ep3_lr5e-05/training_metrics.json
+
+== 
+Evaluation Results (after_finetuning_trainsize265):
+
+
+=== 
+Average BLEU Score: 0.2901
+
+ 
+Detailed results saved to: ../res/data/results/evaluation_results_after_finetuning_trainsize265_20250212.json
+
+ Generated code samples saved to: ../res/data/generated_code/after_finetuning_trainsize265
+
+
+=== Processing dataset inline...
+
+ Sending request to build checker API inline content
+
+
+=== 
+Running examples: 2/17
+
+
+ 
+Training completed in 330.66 seconds
+
+ 
+Training metrics saved to: ../res/outputs/combo_2_r16_alpha64_bs4_ep3_lr0.0001/training_metrics.json
+
+== 
+Evaluation Results (after_finetuning_trainsize265):
+
+
+=== 
+Average BLEU Score: 0.2691
+
+ 
+Detailed results saved to: ../res/data/results/evaluation_results_after_finetuning_trainsize265_20250212.json
+
+ Generated code samples saved to: ../res/data/generated_code/after_finetuning_trainsize265
+
+
+=== Processing dataset inline...
+
+ Sending request to build checker API inline content
+
+
+=== 
+Running examples: 3/17
+
+
+ 
+Training completed in 445.85 seconds
+
+ 
+Training metrics saved to: ../res/outputs/combo_3_r16_alpha64_bs4_ep4_lr5e-05/training_metrics.json
+
+== 
+Evaluation Results (after_finetuning_trainsize265):
+
+
+=== 
+Average BLEU Score: 0.2944
+
+ 
+Detailed results saved to: ../res/data/results/evaluation_results_after_finetuning_trainsize265_20250212.json
+
+ Generated code samples saved to: ../res/data/generated_code/after_finetuning_trainsize265
+
+
+=== Processing dataset inline...
+
+ Sending request to build checker API inline content
+
+
+=== 
+Running examples: 4/17
+
+
+ 
+Training completed in 446.57 seconds
+
+ 
+Training metrics saved to: ../res/outputs/combo_4_r16_alpha64_bs4_ep4_lr0.0001/training_metrics.json
+
+== 
+Evaluation Results (after_finetuning_trainsize265):
+
+
+=== 
+Average BLEU Score: 0.2951
+
+ 
+Detailed results saved to: ../res/data/results/evaluation_results_after_finetuning_trainsize265_20250212.json
+
+ Generated code samples saved to: ../res/data/generated_code/after_finetuning_trainsize265
+
+
+=== Processing dataset inline...
+
+ Sending request to build checker API inline content
+
+
+=== 
+Running examples: 4/17
+
+
+ 
+Training completed in 336.99 seconds
+
+ 
+Training metrics saved to: ../res/outputs/combo_5_r16_alpha128_bs4_ep3_lr5e-05/training_metrics.json

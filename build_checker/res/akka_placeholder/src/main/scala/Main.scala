@@ -1,50 +1,50 @@
-import akka.actor.{Actor, ActorRef, ActorSystem, OneForOneStrategy, Props, SupervisorStrategy}
-import akka.actor.SupervisorStrategy.{Restart, Escalate}
+import akka.actor.{Actor, ActorSystem, OneForOneStrategy, SupervisionStrategy, Props}
 import scala.concurrent.duration._
-
-// Define the FaultyChildActor
-class FaultyChildActor extends Actor {
-  def receive: Receive = {
-    case "causeNull" =>
-      println(s"${self.path.name} received 'causeNull', attempting to trigger NullPointerException.")
-      throw new NullPointerException("Simulated NullPointerException")
-    case msg =>
-      println(s"${self.path.name} received message: $msg")
-  }
-}
 
 // Define the EscalatingSupervisor Actor
 class EscalatingSupervisor extends Actor {
-  override val supervisorStrategy: SupervisorStrategy = OneForOneStrategy(
-    maxNrOfRetries = 2,
-    withinTimeRange = 1.minute
-  ) {
-    case _: NullPointerException =>
-      println(s"EscalatingSupervisor caught NullPointerException, escalating failure.")
-      Escalate
-    case other =>
-      println(s"EscalatingSupervisor encountered an unexpected error: $other")
-      Restart
-  }
-
-  // Create the child actor
-  val child: ActorRef = context.actorOf(Props[FaultyChildActor](), "faultyChildActor")
-
+  var supervisorStrategy = OneForOneStrategy() withDefaultStrategy // Initialize to one-for-one
   def receive: Receive = {
     case msg =>
-      println(s"EscalatingSupervisor received message: $msg from child actor")
-      child.forward(msg)
+      if (supervisorStrategy == OneForOneStrategy()) {
+        println(s"EscalatingSupervisor received $msg; default strategy engaged.")
+        supervisorStrategy = SupervisorStrategy.resume() // Switch to resume strategy
+      } else if (supervisorStrategy == SupervisorStrategy.resume()) {
+        println("EscalatingSupervisor: Resume strategy engaged.")
+        val esc = context.parent // Get parent for supervision escalation
+        esc.forward(this, "faultyChild")
+      } else {
+        println("Supervisor is not configured with a strategy.")
+      }
   }
 }
 
-// Usage Example (for testing purposes)
-object EscalatingSupervisorApp extends App {
-  val system = ActorSystem("EscalatingSupervisorSystem")
-  val supervisor = system.actorOf(Props[EscalatingSupervisor](), "escalatingSupervisor")
+// Define the FaultyChildActor that fails when receiving "causeNull"
+class FaultyChildActor extends Actor {
+  def receive: Receive = {
+    case msg =>
+      if (msg == "causeNull") {
+        throw new NullPointerException("FaultyChildActor: Cause Null Exception")
+      } else {
+        println(s"FaultyChildActor processed: $msg")
+      }
+    case _ => println("FaultyChildActor processed unknown message.")
+  }
+}
 
-  supervisor! "causeNull"
-  supervisor! "Post-nullPointerException message"
+// Usage Example for EscalatingSupervisor and FaultyChildActor
+object SupervisorFailureEscalationApp extends App {
+  val system = ActorSystem("FailureEscalatorSystem")
 
-  Thread.sleep(2000)
+  // EscalatingSupervisor as Supervisor Actor
+  val escSupervisor = system.actorOf(Props[EscalatingSupervisor](), "escalator")
+
+  // FaultyChildActor under EscalatingSupervisor supervision
+  val childActor = escSupervisor? "faultyChild"
+
+  // Allow some time for the actor to fail
+  Thread.sleep(1500)
+
+  // Check for the expected failure after a short delay
   system.terminate()
 }
