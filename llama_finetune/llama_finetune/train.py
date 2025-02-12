@@ -18,6 +18,7 @@ from termcolor import colored
 import hashlib
 import json
 from datetime import datetime
+import time
 
 
 
@@ -148,110 +149,112 @@ def parse_args():
     )
     return parser.parse_args()
 
+def save_training_metrics(output_dir: str, metrics: dict) -> None:
+    """Save training metrics to a JSON file."""
+    os.makedirs(output_dir, exist_ok=True)
+    with open(f"{output_dir}/training_metrics.json", "w") as f:
+        json.dump(metrics, f, indent=2)
+
+def evaluate_and_store_results(model, tokenizer, test_dataset_path, train_dataset_size, 
+                             output_prefix, output_dir, training_args, peft_params):
+    """Common evaluation and result storage logic."""
+    results_file, avg_bleu, samples_info = evaluate_model(
+        model, tokenizer, test_dataset_path, train_dataset_size, output_prefix
+    )
+
+    store_model_info(
+        "../res/data/trained_models/",
+        train_dataset_size,
+        len(load_dataset("json", data_files=test_dataset_path, split="train")),
+        training_args,
+        avg_bleu,
+        samples_info,
+        peft_params
+    )
+
+    return avg_bleu, samples_info
+
 def process_loaded_model(args, model, output_dir, tokenizer, train_dataset_size) -> None:
     print(f"Loading fine-tuned model from {args.load_model}...")
-    # Load the PEFT model
     model = PeftModel.from_pretrained(model, args.load_model)
 
-    if train_dataset_size:
-        output_prefix = f"loaded_finetuned_trainsize{train_dataset_size}"
-    else:
-        output_prefix = "loaded_finetuned"
-
-    # Evaluate loaded model
-    print("Evaluating loaded fine-tuned model...")
-    from evaluate import evaluate_model
-
-    results_file, avg_bleu, samples_info = evaluate_model(
-        model, tokenizer, args.test_dataset_path, train_dataset_size, output_prefix
-    )
+    output_prefix = f"loaded_finetuned_trainsize{train_dataset_size}" if train_dataset_size else "loaded_finetuned"
 
     # Create training arguments with global parameters
     local_training_params = TRAINING_PARAMS.copy()
     local_training_params["output_dir"] = output_dir
     training_args = TrainingArguments(**local_training_params)
 
-    store_model_info(
-        "../res/data/trained_models/",
-        train_dataset_size,
-        len(load_dataset("json", data_files=args.test_dataset_path, split="train")),
-        training_args,
-        avg_bleu,
-        samples_info,
-        PEFT_PARAMS
+    evaluate_and_store_results(
+        model, tokenizer, args.test_dataset_path, train_dataset_size,
+        output_prefix, output_dir, training_args, PEFT_PARAMS
     )
-
 
 def process_trained_model(args, max_seq_length, model, output_dir, tokenizer, train_dataset_size, peft_params=None, training_params=None):
-    # Prepare dataset
     dataset = prepare_dataset(args.dataset_path, tokenizer)
-
-    # Setup and start training with specific parameters
-    trainer = setup_trainer(
-        model, 
-        tokenizer, 
-        dataset, 
-        max_seq_length, 
-        output_dir,
-        peft_params,
-        training_params
-    )
-
-    # Track training time
-    import time
+    trainer = setup_trainer(model, tokenizer, dataset, max_seq_length, output_dir, peft_params, training_params)
 
     start_time = time.time()
     training_output = trainer.train()
     training_time = time.time() - start_time
 
     # Save training metrics
-    training_metrics = {
+    metrics = {
         "training_time_seconds": training_time,
         "training_stats": training_output.metrics if training_output else None,
     }
-    import json
+    save_training_metrics(output_dir, metrics)
 
-    # Create output directory if it doesn't exist
-    os.makedirs(output_dir, exist_ok=True)
-
-    with open(f"{output_dir}/training_metrics.json", "w") as f:
-        json.dump(training_metrics, f, indent=2)
-
-    # Save the fine-tuned model
     trainer.save_model(f"{output_dir}/finetuned_model")
 
-    # Evaluate model after fine-tuning
-    print("Evaluating model after fine-tuning...")
     output_prefix = f"after_finetuning_trainsize{train_dataset_size}"
-
-    # FIXME
-    results_file, avg_bleu, samples_info = evaluate_model(
-        model, tokenizer, args.test_dataset_path, train_dataset_size, output_prefix
+    avg_bleu, samples_info = evaluate_and_store_results(
+        model, tokenizer, args.test_dataset_path, train_dataset_size,
+        output_prefix, output_dir, trainer.args, PEFT_PARAMS
     )
 
-    train_time_str = f"\nTraining completed in {training_time:.2f} seconds"
-    train_metrics_path_str = (
-        f"\nTraining metrics saved to: {output_dir}/training_metrics.json"
-    )
-
-    # Store model info
-    store_model_info(
-        "../res/data/trained_models/",
-        train_dataset_size,
-        len(load_dataset("json", data_files=args.test_dataset_path, split="train")),
-        trainer.args,
-        avg_bleu,
-        samples_info,
-        PEFT_PARAMS
-    )
-
-    file_logger.write_and_print(train_time_str)
-    file_logger.write_and_print(train_metrics_path_str)
-
+    file_logger.write_and_print(f"\nTraining completed in {training_time:.2f} seconds")
+    file_logger.write_and_print(f"\nTraining metrics saved to: {output_dir}/training_metrics.json")
 
 def execute_grid_search(args, model, tokenizer, max_seq_length, train_dataset_size):
     """Execute grid search training with different parameter combinations."""
     combinations = get_grid_combinations()
+    print(f"Starting grid search with {len(combinations)} combinations...")
+
+    best_results = {
+        'execution_rate': 0,
+        'params': None
+    }
+
+    for i, (peft_updates, training_updates) in enumerate(combinations):
+        print(f"\nRunning combination {i+1}/{len(combinations)}")
+        combo_output_dir = os.path.join(
+            args.output_dir,
+            f"combo_{i+1}_r{peft_updates['r']}_alpha{peft_updates['lora_alpha']}_"
+            f"bs{training_updates['per_device_train_batch_size']}_"
+            f"ep{training_updates['num_train_epochs']}_"
+            f"lr{training_updates['learning_rate']}"
+        )
+
+        try:
+            current_model, current_tokenizer = load_model_and_tokenizer(
+                max_seq_length=max_seq_length
+            )
+
+            process_trained_model(
+                args, max_seq_length, current_model, combo_output_dir,
+                current_tokenizer, train_dataset_size,
+                get_peft_params(peft_updates),
+                get_training_params(training_updates)
+            )
+
+            # Process evaluation results
+            with open(os.path.join(combo_output_dir, "evaluation_results.json"), "r") as f:
+                eval_results = json.load(f)
+            
+            execution_metrics = eval_results.get("execution_check", {})
+        except Exception as e:
+            print(f"An error occurred: {e}")
     print(f"Starting grid search with {len(combinations)} combinations...")
 
     best_execution_rate = 0
