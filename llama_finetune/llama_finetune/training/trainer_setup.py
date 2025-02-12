@@ -8,6 +8,11 @@ def setup_trainer(model, tokenizer, dataset, max_seq_length, output_dir="outputs
     # Use the provided PEFT parameters
     model = FastLanguageModel.get_peft_model(model, **peft_params)
 
+    # Ensure output_dir is set in training parameters
+    if training_params is None:
+        raise ValueError("Training parameters must be provided")
+    training_params["output_dir"] = output_dir
+
     # Create training arguments
     training_args = TrainingArguments(**training_params)
 

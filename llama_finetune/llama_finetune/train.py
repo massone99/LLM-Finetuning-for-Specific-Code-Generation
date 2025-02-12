@@ -19,8 +19,8 @@ import hashlib
 import json
 from datetime import datetime
 
-from config import PEFT_PARAMS, TRAINING_PARAMS, store_model_info
-from config import (
+from training.config import PEFT_PARAMS, TRAINING_PARAMS, store_model_info
+from training.config import (
     get_grid_combinations,
     get_peft_params,
     get_training_params,

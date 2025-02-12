@@ -1,4 +1,7 @@
 from datasets import load_dataset
+from unsloth.chat_templates import (
+    standardize_sharegpt,
+)
 
 def prepare_dataset(dataset_path, tokenizer):
     """Prepare the dataset for training."""

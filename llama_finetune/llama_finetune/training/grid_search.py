@@ -4,6 +4,7 @@ import json
 from datasets import load_dataset
 from .model_loader import load_model_and_tokenizer
 from .trainer_setup import setup_trainer
+from .config import get_grid_combinations, get_peft_params, get_training_params
 
 def execute_grid_search(args, model, tokenizer, max_seq_length, train_dataset_size):
     """Execute grid search training with different parameter combinations."""
