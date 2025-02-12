@@ -1,55 +1,34 @@
-import akka.actor.{Actor, ActorRef, ActorSystem, Props, OneForOneStrategy, SupervisorStrategy}
-import akka.actor.SupervisorStrategy.{Restart, Escalate}
+import akka.actor.{Actor, ActorRef, ActorSystem, Props, OneForOneStrategy}
+import akka.actor.SupervisorStrategy.{Resume, Escalate}
 import scala.concurrent.duration._
-import scala.concurrent.ExecutionContext.Implicits.global
 
-// Define the ChildActor
-class ChildActor extends Actor {
-  def receive: Receive = {
-    case "causeNull" => throw new NullPointerException("Null pointer exception triggered!")
-    case msg => println(s"ChildActor received: $msg")
-  }
-}
-
-// Define the FaultyChildActor
 class FaultyChildActor extends Actor {
   def receive: Receive = {
-    case "failNow" => throw new NullPointerException("FaultyChildActor failing now!")
-    case msg => println(s"FaultyChildActor received: $msg")
+    case "causeNull" => throw new NullPointerException("Null pointer exception caused by message: causeNull")
+    case msg => println(s"FaultyChildActor received message: $msg")
   }
 }
 
-// Define the EscalatingSupervisor
 class EscalatingSupervisor extends Actor {
-  override val supervisorStrategy = OneForOneStrategy() {
-    case _: NullPointerException =>
-      println("EscalatingSupervisor: Escalating failure to parent supervisor.")
-      Escalate
+  override val supervisorStrategy: OneForOneStrategy = OneForOneStrategy() {
+    case _: NullPointerException => Resume
+    case _: Exception => Escalate
   }
-
-  // Create the child actor
-  val faultyChild: ActorRef = context.actorOf(Props[FaultyChildActor](), "faultyChildActor")
-
+  
+  val child: ActorRef = context.actorOf(Props[FaultyChildActor](), "faultyChild")
   def receive: Receive = {
-    case msg =>
-      println(s"EscalatingSupervisor sending message: $msg")
-      faultyChild! msg
+    case msg => child.forward(msg)
   }
 }
 
-// Usage Example (for testing purposes)
 object EscalatingSupervisorApp extends App {
   val system = ActorSystem("EscalatingSupervisorSystem")
   val supervisor = system.actorOf(Props[EscalatingSupervisor](), "escalatingSupervisor")
-
-  // Send messages to the child actor through the supervisor
   supervisor! "causeNull"
-  supervisor! "failNow"
-  supervisor! "Another message"
-  supervisor! "causeNull" // Should escalate again
-  supervisor! "failNow"    // Should escalate once more
-
-  // Allow some time for processing before shutdown
+  supervisor! "failAfterEscalate" // message to demonstrate escalation and failure
   Thread.sleep(1000)
   system.terminate()
 }
+
+// Note: The failure escalation might take some time (up to 1 second in this case) because the child needs to throw the exception before the supervisor can escalate it.
+//
