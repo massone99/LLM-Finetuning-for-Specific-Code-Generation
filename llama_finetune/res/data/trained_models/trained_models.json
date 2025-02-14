@@ -394,5 +394,170 @@
       "successful_runs": 4,
       "total_snippets": 17
     }
+  },
+  {
+    "model_hash": "92f1feb07a03fb58adda2c49283b18da5fce95d9aa1178add03f5623815db708",
+    "timestamp": "2025-02-12T20:59:56.357887",
+    "batch_size": 3,
+    "gradient_accumulation_steps": 4,
+    "learning_rate": 0.000224285972,
+    "num_train_epochs": 5,
+    "max_steps": -1,
+    "warmup_steps": 10,
+    "optimizer": "adamw_8bit",
+    "weight_decay": 0.01,
+    "lr_scheduler": "cosine",
+    "lora_rank": 64,
+    "lora_alpha": 512,
+    "lora_dropout": 0,
+    "target_modules": [
+      "q_proj",
+      "k_proj",
+      "v_proj",
+      "o_proj",
+      "gate_proj",
+      "up_proj",
+      "down_proj"
+    ],
+    "use_gradient_checkpointing": "unsloth",
+    "train_dataset_size": 265,
+    "test_dataset_size": 17,
+    "avg_bleu": 0.3703907984283441,
+    "execution_check": {
+      "successful_runs": 8,
+      "total_snippets": 17
+    }
+  },
+  {
+    "model_hash": "de45a62ed42181e8439ad3a307e21947207a8e495826612d3eb9ecf1e092a0d4",
+    "timestamp": "2025-02-13T13:05:46.922587",
+    "batch_size": 3,
+    "gradient_accumulation_steps": 4,
+    "learning_rate": 1.73895779e-05,
+    "num_train_epochs": 3,
+    "max_steps": -1,
+    "warmup_steps": 10,
+    "optimizer": "adamw_8bit",
+    "weight_decay": 0.01,
+    "lr_scheduler": "cosine",
+    "lora_rank": 64,
+    "lora_alpha": 512,
+    "lora_dropout": 0,
+    "target_modules": [
+      "q_proj",
+      "k_proj",
+      "v_proj",
+      "o_proj",
+      "gate_proj",
+      "up_proj",
+      "down_proj"
+    ],
+    "use_gradient_checkpointing": "unsloth",
+    "train_dataset_size": 265,
+    "test_dataset_size": 17,
+    "avg_bleu": 0.2950427891370716,
+    "execution_check": {
+      "successful_runs": 7,
+      "total_snippets": 17
+    }
+  },
+  {
+    "model_hash": "abbba78710c437081179601ecb61bee8659f3d6674d13946bd78ba3d2f8390fa",
+    "timestamp": "2025-02-13T17:13:04.678794",
+    "batch_size": 4,
+    "gradient_accumulation_steps": 4,
+    "learning_rate": 0.0002,
+    "num_train_epochs": 5,
+    "max_steps": -1,
+    "warmup_steps": 5,
+    "optimizer": "adamw_8bit",
+    "weight_decay": 0.01,
+    "lr_scheduler": "linear",
+    "lora_rank": 64,
+    "lora_alpha": 512,
+    "lora_dropout": 0,
+    "target_modules": [
+      "q_proj",
+      "k_proj",
+      "v_proj",
+      "o_proj",
+      "gate_proj",
+      "up_proj",
+      "down_proj"
+    ],
+    "use_gradient_checkpointing": "unsloth",
+    "train_dataset_size": 275,
+    "test_dataset_size": 17,
+    "avg_bleu": 0.38915603036982915,
+    "execution_check": {
+      "successful_runs": 10,
+      "total_snippets": 17
+    }
+  },
+  {
+    "model_hash": "fda584178eeda5311fe95674f4e5415c864665992833b7d43a1e3832deea1c7b",
+    "timestamp": "2025-02-13T17:28:00.783322",
+    "batch_size": 4,
+    "gradient_accumulation_steps": 4,
+    "learning_rate": 0.0002,
+    "num_train_epochs": 5,
+    "max_steps": -1,
+    "warmup_steps": 5,
+    "optimizer": "adamw_8bit",
+    "weight_decay": 0.01,
+    "lr_scheduler": "linear",
+    "lora_rank": 64,
+    "lora_alpha": 512,
+    "lora_dropout": 0,
+    "target_modules": [
+      "q_proj",
+      "k_proj",
+      "v_proj",
+      "o_proj",
+      "gate_proj",
+      "up_proj",
+      "down_proj"
+    ],
+    "use_gradient_checkpointing": "unsloth",
+    "train_dataset_size": 265,
+    "test_dataset_size": 17,
+    "avg_bleu": 0.4165322463558243,
+    "execution_check": {
+      "successful_runs": 10,
+      "total_snippets": 17
+    }
+  },
+  {
+    "model_hash": "3696a1cb7e6632639ac7e53a35da99ee9accedbd01d336e923133a0135dbd4fd",
+    "timestamp": "2025-02-13T19:04:46.783059",
+    "batch_size": 4,
+    "gradient_accumulation_steps": 4,
+    "learning_rate": 0.0002,
+    "num_train_epochs": 15,
+    "max_steps": -1,
+    "warmup_steps": 5,
+    "optimizer": "adamw_8bit",
+    "weight_decay": 0.01,
+    "lr_scheduler": "linear",
+    "lora_rank": 64,
+    "lora_alpha": 512,
+    "lora_dropout": 0,
+    "target_modules": [
+      "q_proj",
+      "k_proj",
+      "v_proj",
+      "o_proj",
+      "gate_proj",
+      "up_proj",
+      "down_proj"
+    ],
+    "use_gradient_checkpointing": "unsloth",
+    "train_dataset_size": 265,
+    "test_dataset_size": 17,
+    "avg_bleu": 0.4404878125901864,
+    "execution_check": {
+      "successful_runs": 12,
+      "total_snippets": 17
+    }
   }
 ]
