@@ -20,6 +20,7 @@ fastapi = "^0.115.8"
 uvicorn = "^0.34.0"
 matplotlib = "^3.10.0"
 pyqt5 = "^5.15.11"
+smac = "^2.3.0"
 
 [tool.pyright]
 typeCheckingMode = "off"

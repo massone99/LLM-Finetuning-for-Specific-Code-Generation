@@ -14,7 +14,7 @@ from training.config import PEFT_PARAMS, TRAINING_PARAMS, store_model_info
 from training.model_loader import load_model_and_tokenizer
 from training.dataset_utils import prepare_dataset
 from training.trainer_setup import setup_trainer
-from training.grid_search import execute_grid_search
+from training.grid_search import execute_grid_search, execute_smac_optimization
 from training.training_utils import process_trained_model
 
 
@@ -67,6 +67,19 @@ def parse_args():
         "--grid-search",
         action="store_true",
         help="Enable grid search for hyperparameter tuning",
+    )
+    parser.add_argument(
+        "--optimization-method",
+        type=str,
+        choices=["grid", "smac"],
+        default="grid",
+        help="Hyperparameter optimization method to use",
+    )
+    parser.add_argument(
+        "--n-trials",
+        type=int,
+        default=20,
+        help="Number of trials for SMAC optimization",
     )
     return parser.parse_args()
 
@@ -194,9 +207,15 @@ def main():
         if args.load_model:
             process_loaded_model(args, model, output_dir, tokenizer, train_dataset_size)
         elif args.grid_search:
-            best_params = execute_grid_search(
-                args, model, tokenizer, max_seq_length, train_dataset_size
-            )
+            if args.optimization_method == "smac":
+                best_params = execute_smac_optimization(
+                    args, model, tokenizer, max_seq_length, train_dataset_size,
+                    n_trials=args.n_trials
+                )
+            else:
+                best_params = execute_grid_search(
+                    args, model, tokenizer, max_seq_length, train_dataset_size
+                )
             save_grid_search_results(output_dir, best_params)
         else:
             # Single training run with default parameters

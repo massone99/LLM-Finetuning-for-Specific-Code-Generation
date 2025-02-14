@@ -128,8 +128,10 @@ TRAINING_PARAMS = {
     # - max_steps=500, warmup_steps=50: mediocre results (BLEU: 0.38, 5/17)
     # - max_steps=60, warmup_steps=5: better results
     "warmup_steps": 5,
-    "num_train_epochs": 5,
-    "max_steps": 60,
+    # "num_train_epochs": 4, original with max_steps = 60
+    "num_train_epochs": 15, # TODO: provare a ottenere una double descent overfittando su un numero bello alto di epoche: superiamo le 5 epoche, penso che 10 potrebbero sorprendermi
+    # "max_steps": 60, # TODO: PROVA -1 PER USARE IL NUMERO DI EPOCHE
+    "max_steps": -1,
     "learning_rate": 2e-4,
     "fp16": not is_bfloat16_supported(),  # Use FP16 if bfloat16 not available
     "bf16": is_bfloat16_supported(),  # Prefer bfloat16 if supported

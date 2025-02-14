@@ -28,3 +28,6 @@ llama_finetune/llama_finetune/outputs/*
 
 # Ignore log files
 **/*.log
+
+# Ignore the smac3 output
+llama_finetune/llama_finetune/smac3_output/*
