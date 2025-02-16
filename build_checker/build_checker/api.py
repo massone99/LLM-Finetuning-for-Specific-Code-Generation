@@ -90,6 +90,9 @@ class BuildCheckerAPI:
         if not code.strip():
             return False, "No code provided"
 
+        # Clean up the code by removing model special tokens
+        code = code.replace("<|endoftext|>", "").strip()
+
         if snippet_idx is not None:
             snippet_info = f"conversation {idx}, snippet {snippet_idx + 1}"
         else:

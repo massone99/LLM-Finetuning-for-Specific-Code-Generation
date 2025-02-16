@@ -4,16 +4,12 @@ from peft import PeftModel
 from transformers import TrainingArguments
 from PyQt5.QtWidgets import QApplication, QFileDialog
 
-from evaluate import evaluate_model
-from logger import file_logger
 import json
 from datetime import datetime
 
 from training.config import PEFT_PARAMS, TRAINING_PARAMS, store_model_info
 
 from training.model_loader import load_model_and_tokenizer
-from training.dataset_utils import prepare_dataset
-from training.trainer_setup import setup_trainer
 from training.grid_search import execute_grid_search, execute_smac_optimization
 from training.training_utils import process_trained_model
 

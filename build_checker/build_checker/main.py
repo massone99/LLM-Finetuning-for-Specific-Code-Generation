@@ -350,7 +350,7 @@ class DatasetProcessorGUI(QMainWindow):
         self.select_main_dataset_button = QPushButton("Select Main Dataset")
         self.select_main_dataset_button.clicked.connect(self.select_main_dataset)
         self.select_main_dataset_button.setVisible(False)
-
+        
         # Process button
         self.process_button = QPushButton("Process Dataset")
         self.process_button.clicked.connect(self.process_dataset)
