@@ -1,4 +1,4 @@
-from src.main import PromptEvaluator
+from src.prompt_evaluator import PromptEvaluator
 import pytest
 from unittest.mock import patch
 
@@ -19,6 +19,7 @@ def test_prompt_evaluator_init(evaluator):
 
 
 # @patch('requests.post'): intercetta le chiamate HTTP POST
+# mock_post is used to mock the post requests inside the test function
 @patch("requests.post")
 def test_generate_response_without_system_prompt(mock_post, evaluator, mock_response):
     mock_post.return_value.json.return_value = mock_response

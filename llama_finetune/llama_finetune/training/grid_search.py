@@ -90,7 +90,3 @@ def execute_smac_optimization(args, model, tokenizer, max_seq_length, train_data
         "timestamp": datetime.now().isoformat()
     }
 
-# Maintain the old function for compatibility
-def execute_grid_search(args, model, tokenizer, max_seq_length, train_dataset_size):
-    """Execute SMAC optimization instead of grid search"""
-    return execute_smac_optimization(args, model, tokenizer, max_seq_length, train_dataset_size)

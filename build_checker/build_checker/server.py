@@ -57,7 +57,7 @@ async def process_dataset_inline(dataset: InlineDataset):
                 detail="No data provided in the dataset"
             )
 
-        # Extract code snippets from conversations
+        # Extract code snippets from convers>ations
         snippets = []
         if isinstance(data, list):
             for item in data:

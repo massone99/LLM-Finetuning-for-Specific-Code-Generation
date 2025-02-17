@@ -14,6 +14,9 @@ ollama = "^0.4.2"
 beautifulsoup4 = "^4.12.3"
 chromadb = "^0.5.23"
 gradio = "^5.8.0"
+nltk = "^3.9.1"
+datasets = "^3.3.0"
+langchain-ollama = "^0.2.3"
 
 
 [build-system]

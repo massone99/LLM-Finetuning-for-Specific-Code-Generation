@@ -1,46 +1,44 @@
-import akka.actor.{Actor, ActorRef, ActorSystem, OneForOneStrategy, Props, SupervisorStrategy}
-import akka.actor.SupervisorStrategy.{Resume, Escalate}
+// Define message types as case classes
+sealed trait Message {
+  def to: String
+}
+
+case class EchoMessage(message: String) extends Message
+
+case object StopEchoActor extends Message
+
+object Messages {
+  val echo = "echo"
+  val stop = "stop"
+}
+
+// Actor implementation with behaviors
+import akka.actor.ActorSystem, Props
+import akka.actor.Props
 import scala.concurrent.duration._
 
-// Define the FaultyChildActor
-class FaultyChildActor extends Actor {
-  def receive: Receive = {
-    case "causeNull" =>
-      println(s"${self.path.name} received 'causeNull' and will throw NullPointerException.")
-      throw new NullPointerException("Null pointer exception!")
-    case msg =>
-      println(s"${self.path.name} received message: $msg")
-  }
-}
-
-// Define the EscalatingSupervisor Actor
-class EscalatingSupervisor extends Actor {
-  override val supervisorStrategy: SupervisorStrategy = OneForOneStrategy() {
-    case _: NullPointerException =>
-      println("EscalatingSupervisor: Escalating NullPointerException to higher level.")
-      Escalate
+class EchoActor extends Actor with ActorSystem {
+  override def receive: Receive = {
+    case msg @ Messages.echo => sender() ! msg.to
+    case _ if self == systemactorSystem => stop()
     case _ =>
-      Resume
-  }
-
-  // Create the child actor
-  val child: ActorRef = context.actorOf(Props[FaultyChildActor](), "faultyChild")
-
-  def receive: Receive = {
-    case msg =>
-      child.forward(msg)
+      context.become(DeadLetterHandler())
   }
 }
 
-// Usage Example (for testing purposes)
-object EscalatingSupervisorApp extends App {
-  val system = ActorSystem("EscalatingSupervisorSystem")
-  val supervisor = system.actorOf(Props[EscalatingSupervisor](), "escalatingSupervisor")
+// System integration setup
+import akka.actor.ActorRef, ActorMaterializer
 
-  // Send a message that causes NullPointerException in the child
-  supervisor ! "causeNull"
+object EchoActorApp {
+  def main(args: Array[String]): Unit = {
+    implicit val materializer: ActorMaterializer = ActorMaterializer()
+    implicit val system = ActorSystem("EchoActor")
+    val echoActor = system.actorOf(Props(EchoActor))
 
-  // Allow some time for processing before shutdown
-  Thread.sleep(1000)
-  system.terminate()
+    // Test sending message
+    val ref = echoActor
+    ref ! Messages.echo
+    Thread.sleep(100)
+    ref ! Messages.stop
+  }
 }

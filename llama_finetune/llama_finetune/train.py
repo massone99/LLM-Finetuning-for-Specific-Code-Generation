@@ -10,7 +10,7 @@ from datetime import datetime
 from training.config import PEFT_PARAMS, TRAINING_PARAMS, store_model_info
 
 from training.model_loader import load_model_and_tokenizer
-from training.grid_search import execute_grid_search, execute_smac_optimization
+from training.grid_search import execute_smac_optimization
 from training.training_utils import process_trained_model
 
 
@@ -18,6 +18,7 @@ def show_dataset_dialog():
     """Show a file dialog to select the dataset file"""
     app = QApplication([])
     file_dialog = QFileDialog()
+    file_dialog.setWindowTitle("Select Dataset File")
     file_dialog.setNameFilter("JSON files (*.json)")
     file_dialog.setFileMode(QFileDialog.ExistingFile)
     
@@ -25,6 +26,12 @@ def show_dataset_dialog():
         selected_files = file_dialog.selectedFiles()
         return selected_files[0]
     return None
+
+def show_folder_dialog():
+    """Show a folder dialog to select a directory"""
+    app = QApplication([])
+    folder = QFileDialog.getExistingDirectory(None, "Select Model Folder", os.getcwd())
+    return folder if folder else None
 
 def parse_args():
     import argparse
@@ -63,13 +70,6 @@ def parse_args():
         "--grid-search",
         action="store_true",
         help="Enable grid search for hyperparameter tuning",
-    )
-    parser.add_argument(
-        "--optimization-method",
-        type=str,
-        choices=["grid", "smac"],
-        default="grid",
-        help="Hyperparameter optimization method to use",
     )
     parser.add_argument(
         "--n-trials",
@@ -148,7 +148,7 @@ def save_grid_search_results(output_dir: str, best_params: dict) -> None:
 
 # To select the dataset with a GUI, append the flag --gui-select
 
-# Grid search
+# Grid search (with Smac) (TODO: FIX)
 # poetry run python train.py --dataset-path ../res/data/dataset_llama.json --output-dir ../res/outputs --grid-search
 
 
@@ -203,15 +203,9 @@ def main():
         if args.load_model:
             process_loaded_model(args, model, output_dir, tokenizer, train_dataset_size)
         elif args.grid_search:
-            if args.optimization_method == "smac":
-                best_params = execute_smac_optimization(
-                    args, model, tokenizer, max_seq_length, train_dataset_size,
-                    n_trials=args.n_trials
-                )
-            else:
-                best_params = execute_grid_search(
-                    args, model, tokenizer, max_seq_length, train_dataset_size
-                )
+            best_params = execute_smac_optimization(
+                args, model, tokenizer, max_seq_length, train_dataset_size
+            )
             save_grid_search_results(output_dir, best_params)
         else:
             # Single training run with default parameters

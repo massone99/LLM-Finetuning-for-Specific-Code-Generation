@@ -1,74 +1,24 @@
-# Llama 3.2 Fine-tuning Project
+# Llama Fine-tuning: Code Summary
 
-This project implements fine-tuning of the Llama 3.2 model for code generation tasks, specifically focused on Scala/Akka code generation.
+This directory implements a fine-tuning project for Llama 3.2 3B for DSL tasks.
 
-## Project Structure
+## Summary of Functions
 
-```
-llama_finetune/
-├── res/               # Dataset files
-├── llama_finetune/    # Source code
-│   ├── train.py       # Training script
-│   ├── logger.py      # Logger script
-│   └── evaluate.py    # Evaluation script
-├── outputs/           # Training outputs and model checkpoints
-├── pyproject.toml     # Poetry dependencies
-└── README.md          # This file
-```
+- Training Pipeline:
+  - Loads and prepares datasets.
+  - Configures training parameters and manages trainers.
+  - Saves fine-tuned models and training metrics.
 
-## Setup
+- Hyperparameter Optimization:
+  - Implements grid search using SMAC to tune hyperparameters such as LoRA settings and learning rates. (Still buggy, needs to be fixed)
 
-1. Install Poetry if you haven't already:
-```bash
-curl -sSL https://install.python-poetry.org | python3 -
-```
+- Evaluation Utilities:
+  - Provides functions to compute evaluation metrics (BLEU, running_snippets/total_snippets) and generate code outputs.
+  - Offers tools for analyzing model performance and trends.
 
-2. Install dependencies:
-```bash
-poetry install
-```
+- GUI Tools:
+  - Includes a PyQt5-based interface for selecting and trimming dataset files.
 
-3. Install codebleu separately (due to packaging constraints):
-```bash
-pip install codebleu==0.1.7
-```
-
-4. Place your dataset files:
-- Put your training dataset in `data/dataset_llama.json`
-- Put your test dataset in `data/test_set.json`
-
-## Usage
-
-### Training
-
-To fine-tune the model:
-
-```bash
-poetry run python train.py
-```
-
-### Evaluation
-
-To load and evaluate the trained model:
-
-```bash
-poetry run python train.py --load-model ../res/outputs/finetuned_model
-```
-
-## Model Details
-
-- Base Model: Llama 3.2 3B Instruct
-- Fine-tuning Method: LoRA with Unsloth optimizations
-- Training Parameters:
-  - Learning Rate: 2e-4
-  - Batch Size: 2
-  - Gradient Accumulation Steps: 4
-  - Training Steps: 60
-
-## Evaluation Metrics
-
-The model is evaluated using:
-- BLEU Score
-- CodeBLEU Score (specifically for code generation)
-
-Results are saved in CSV and JSON format in the project directory.
+- Utilities:
+  - Contains logging functionality.
+  - Offers helper functions for data formatting and conversation extraction.
