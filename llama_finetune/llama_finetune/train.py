@@ -211,7 +211,7 @@ def main():
         elif args.eval_base:
             # Evaluate the base (not finetuned) model
             print("Evaluating base (not finetuned) model...")
-            from training.evaluate import evaluate_model
+            from evaluate import evaluate_model
             results_file, avg_bleu, samples_info = evaluate_model(
                 model, tokenizer, args.test_dataset_path, train_dataset_size, output_prefix="base"
             )

@@ -1,0 +1,243 @@
+[
+    {
+      "conversations": [
+        {
+          "from": "human",
+          "value": "Implement a typed actor in Scala named BehaviorTestKitExample that demonstrates using BehaviorTestKit for unit testing. It should handle a Greet(name: String) command by logging \"Hello, <name>!\"."
+        },
+        {
+          "from": "assistant",
+          "value": "import akka.actor.testkit.typed.scaladsl.{BehaviorTestKit, TestInbox}\nimport akka.actor.typed.scaladsl.Behaviors\nimport akka.actor.typed.Behavior\nimport akka.actor.typed.ActorRef\n\nobject BehaviorTestKitExample {\n  // Command\n  final case class Greet(name: String)\n\n  // Behavior that just logs a greeting\n  def apply(): Behavior[Greet] = Behaviors.setup { context =>\n    Behaviors.receiveMessage { case Greet(name) =>\n      context.log.info(s\"Hello, $name!\")\n      Behaviors.same\n    }\n  }\n}\n\nobject BehaviorTestKitExampleApp extends App {\n  // Example of how you'd test it\n  val testKit = BehaviorTestKit(BehaviorTestKitExample())\n  testKit.run(BehaviorTestKitExample.Greet(\"Alice\"))\n\n  // The above won't produce console logs in a real environment,\n  // but you can inspect the testKit.logEntries for verification.\n  // This is just a demonstration of using BehaviorTestKit.\n}\n"
+        }
+      ]
+    },
+    {
+      "conversations": [
+        {
+          "from": "human",
+          "value": "Create a typed actor in Scala named EphemeralChildSpawner that, upon receiving a SpawnChild(task: String) command, spawns a temporary child actor to process the task and then stops itself."
+        },
+        {
+          "from": "assistant",
+          "value": "import akka.actor.typed.{ActorSystem, Behavior, PostStop}\nimport akka.actor.typed.scaladsl.{Behaviors, ActorContext}\n\nobject EphemeralChildSpawner {\n  sealed trait Command\n  final case class SpawnChild(task: String) extends Command\n  final case class ChildDone(task: String) extends Command\n\n  // Child actor that does some processing and then notifies the parent\n  private def childBehavior(task: String, replyTo: ActorContext[Command]): Behavior[Nothing] =\n    Behaviors.setup[Nothing] { childCtx =>\n      childCtx.log.info(s\"Child for '$task' started.\")\n      // Simulate some quick processing\n      childCtx.system.scheduler.scheduleOnce(\n        scala.concurrent.duration.DurationInt(500).millis,\n        () => replyTo.self ! ChildDone(task)\n      )(childCtx.executionContext)\n\n      Behaviors.ignore\n    }\n\n  def apply(): Behavior[Command] = Behaviors.setup { ctx =>\n    Behaviors.receiveMessage {\n      case SpawnChild(task) =>\n        ctx.log.info(s\"Spawning a child actor for task '$task'.\")\n        ctx.spawn(childBehavior(task, ctx), s\"child-$task\")\n        Behaviors.same\n\n      case ChildDone(t) =>\n        ctx.log.info(s\"Child for '$t' completed. Stopping self.\")\n        Behaviors.stopped\n    }\n  }\n}\n\nobject EphemeralChildSpawnerApp extends App {\n  import EphemeralChildSpawner._\n  val system = ActorSystem(EphemeralChildSpawner(), \"EphemeralSystem\")\n\n  system ! SpawnChild(\"myTask\")\n  // Actor will stop itself after child completes\n  Thread.sleep(1000)\n  system.terminate()\n}\n"
+        }
+      ]
+    },
+    {
+      "conversations": [
+        {
+          "from": "human",
+          "value": "Demonstrate a typed actor in Scala that uses passivation by stopping itself after an idle timeout of 3 seconds, using Timers."
+        },
+        {
+          "from": "assistant",
+          "value": "import akka.actor.typed.scaladsl.{Behaviors, TimerScheduler}\nimport akka.actor.typed.{ActorSystem, Behavior, PostStop}\nimport scala.concurrent.duration._\n\nobject PassivationActor {\n  sealed trait Command\n  final case class Process(data: String) extends Command\n  private case object IdleTimeout extends Command\n\n  def apply(): Behavior[Command] = Behaviors.withTimers { timers: TimerScheduler[Command] =>\n    Behaviors.setup { context =>\n      var processedInCurrentWindow = 0\n\n      resetIdleTimer(timers)\n\n      Behaviors.receiveMessage {\n        case Process(data) =>\n          context.log.info(s\"Processing data: $data\")\n          resetIdleTimer(timers)\n          Behaviors.same\n        case IdleTimeout =>\n          context.log.info(\"Idle timeout reached, passivating (stopping) actor.\")\n          Behaviors.stopped\n      }\n    }\n  }\n\n  private def resetIdleTimer(timers: TimerScheduler[Command]): Unit = {\n    timers.startSingleTimer(IdleTimeout, IdleTimeout, 3.seconds)\n  }\n}\n\nobject PassivationActorApp extends App {\n  val system = ActorSystem(PassivationActor(), \"PassivationSystem\")\n\n  system ! PassivationActor.Process(\"Hello\")\n  Thread.sleep(2000)\n  system ! PassivationActor.Process(\"Another message\")\n  Thread.sleep(4000) // The actor should stop due to inactivity\n\n  system.terminate()\n}\n"
+        }
+      ]
+    },
+    {
+      "conversations": [
+        {
+          "from": "human",
+          "value": "Create a typed actor in Scala named ConcurrencyExampleActor that spawns multiple tasks concurrently and logs their completion."
+        },
+        {
+          "from": "assistant",
+          "value": "import akka.actor.typed.{ActorSystem, Behavior}\nimport akka.actor.typed.scaladsl.Behaviors\nimport scala.concurrent.Future\nimport scala.concurrent.ExecutionContext.Implicits.global\nimport scala.util.{Success, Failure}\n\nobject ConcurrencyExampleActor {\n  sealed trait Command\n  case object StartConcurrentTasks extends Command\n\n  def apply(): Behavior[Command] = Behaviors.setup { context =>\n    Behaviors.receiveMessage {\n      case StartConcurrentTasks =>\n        // Spawn multiple Futures concurrently\n        val futures = (1 to 3).map { i =>\n          Future {\n            Thread.sleep(500)\n            s\"Task-$i completed\"\n          }\n        }\n        // Collect results\n        Future.sequence(futures).onComplete {\n          case Success(results) =>\n            context.log.info(\"All tasks completed:\")\n            results.foreach(r => context.log.info(r))\n          case Failure(ex) => context.log.error(s\"Task failure: ${ex.getMessage}\")\n        }\n        Behaviors.same\n    }\n  }\n}\n\nobject ConcurrencyExampleApp extends App {\n  val system = ActorSystem(ConcurrencyExampleActor(), \"ConcurrencySystem\")\n  system ! ConcurrencyExampleActor.StartConcurrentTasks\n\n  Thread.sleep(2000)\n  system.terminate()\n}\n"
+        }
+      ]
+    },
+    {
+      "conversations": [
+        {
+          "from": "human",
+          "value": "Implement a typed aggregator actor in Scala named TypedMultiAggregator that spawns sub-actors for partial work and aggregates the results."
+        },
+        {
+          "from": "assistant",
+          "value": "import akka.actor.typed.scaladsl.{Behaviors, ActorContext}\nimport akka.actor.typed.{ActorRef, ActorSystem, Behavior}\nimport scala.concurrent.duration._\n\nobject TypedMultiAggregator {\n  sealed trait Command\n  final case class AggregateRequest(items: List[String]) extends Command\n  private final case class PartialResult(result: String) extends Command\n\n  // Sub-actor that processes a single item\n  private def workerBehavior(item: String, replyTo: ActorRef[Command]): Behavior[Nothing] = Behaviors.setup[Nothing] { childCtx =>\n    childCtx.log.info(s\"Worker processing '$item'\")\n    // In a real scenario, do some actual work, then:\n    replyTo ! PartialResult(s\"Processed-$item\")\n    Behaviors.stopped\n  }\n\n  def apply(): Behavior[Command] = Behaviors.setup { context =>\n    Behaviors.receiveMessage {\n      case AggregateRequest(items) =>\n        val originalSender = context.self\n        items.foreach { item =>\n          val worker = context.spawn(workerBehavior(item, originalSender), s\"worker-$item\")\n        }\n        Behaviors.same\n\n      case PartialResult(res) =>\n        context.log.info(s\"Aggregator received partial: $res\")\n        // In a real aggregator, you might store partial results and combine them.\n        Behaviors.same\n    }\n  }\n}\n\nobject TypedMultiAggregatorApp extends App {\n  import TypedMultiAggregator._\n  val system = ActorSystem(TypedMultiAggregator(), \"TypedAggregatorSystem\")\n\n  system ! AggregateRequest(List(\"alpha\", \"beta\", \"gamma\"))\n\n  Thread.sleep(1500)\n  system.terminate()\n}\n"
+        }
+      ]
+    },
+    {
+      "conversations": [
+        {
+          "from": "human",
+          "value": "Build a typed actor in Scala named CustomStashActor that implements a custom stash limit and discards old messages if stash is full."
+        },
+        {
+          "from": "assistant",
+          "value": "import akka.actor.typed.scaladsl.{Behaviors, StashBuffer}\nimport akka.actor.typed.{ActorSystem, Behavior}\n\nobject CustomStashActor {\n  sealed trait Command\n  case object Start extends Command\n  case object Stop extends Command\n  final case class Msg(content: String) extends Command\n\n  def apply(): Behavior[Command] = Behaviors.withStash(capacity = 5) { buffer =>\n    Behaviors.setup { context =>\n\n      def running: Behavior[Command] = Behaviors.receiveMessage {\n        case Stop =>\n          context.log.info(\"CustomStashActor: Stopping.\")\n          Behaviors.stopped\n        case msg: Msg =>\n          context.log.info(s\"Running mode, message: ${msg.content}\")\n          Behaviors.same\n        case Start =>\n          context.log.info(\"Already running.\")\n          Behaviors.same\n      }\n\n      def waiting: Behavior[Command] = Behaviors.receiveMessage {\n        case Start =>\n          context.log.info(\"CustomStashActor: Received Start, unstashing...\")\n          buffer.unstashAll(running)\n        case m: Msg =>\n          if (buffer.isFull) {\n            context.log.warn(s\"Stash is full! Discarding message: ${m.content}\")\n          } else {\n            buffer.stash(m)\n            context.log.info(s\"Stashing message: ${m.content}\")\n          }\n          Behaviors.same\n        case Stop =>\n          context.log.info(\"CustomStashActor: Stopped in waiting mode.\")\n          Behaviors.stopped\n      }\n\n      waiting\n    }\n  }\n}\n\nobject CustomStashActorApp extends App {\n  import CustomStashActor._\n  val system = ActorSystem(CustomStashActor(), \"CustomStashSystem\")\n\n  // Stash some messages before start\n  system ! Msg(\"One\")\n  system ! Msg(\"Two\")\n  system ! Msg(\"Three\")\n  system ! Msg(\"Four\")\n  system ! Msg(\"Five\")\n  system ! Msg(\"Overflow\") // This should be discarded if stash is full\n\n  Thread.sleep(500)\n  system ! Start\n\n  Thread.sleep(1000)\n  system ! Stop\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+        }
+      ]
+    },
+    {
+      "conversations": [
+        {
+          "from": "human",
+          "value": "Create an Akka Actor in Scala named EphemeralStateAggregator that collects values in memory and resets after printing them, with typed messages."
+        },
+        {
+          "from": "assistant",
+          "value": "import akka.actor.typed.scaladsl.Behaviors\nimport akka.actor.typed.{ActorRef, ActorSystem, Behavior}\n\nobject EphemeralStateAggregator {\n  sealed trait Command\n  case class AddValue(num: Int) extends Command\n  case object PrintAndReset extends Command\n\n  final case class AggregatedResult(sum: Int)\n\n  def apply(): Behavior[Command] = Behaviors.setup { context =>\n    var sum = 0\n\n    Behaviors.receiveMessage {\n      case AddValue(num) =>\n        sum += num\n        Behaviors.same\n      case PrintAndReset =>\n        context.log.info(s\"Current sum = $sum, resetting.\")\n        sum = 0\n        Behaviors.same\n    }\n  }\n}\n\nobject EphemeralStateAggregatorApp extends App {\n  import EphemeralStateAggregator._\n  val system = ActorSystem(EphemeralStateAggregator(), \"EphemeralAggregatorSystem\")\n\n  system ! AddValue(5)\n  system ! AddValue(10)\n  system ! PrintAndReset\n  system ! AddValue(7)\n  system ! PrintAndReset\n\n  Thread.sleep(500)\n  system.terminate()\n}\n"
+        }
+      ]
+    },
+    {
+      "conversations": [
+        {
+          "from": "human",
+          "value": "Show an example typed actor in Scala named PeriodicStateChanger that uses Timers to cycle through three states (A, B, C) every 1 second."
+        },
+        {
+          "from": "assistant",
+          "value": "import akka.actor.typed.scaladsl.{Behaviors, TimerScheduler}\nimport akka.actor.typed.{ActorSystem, Behavior}\nimport scala.concurrent.duration._\n\nobject PeriodicStateChanger {\n  sealed trait Command\n  private case object CycleKey\n  private case object Cycle extends Command\n\n  sealed trait State\n  case object A extends State\n  case object B extends State\n  case object C extends State\n\n  def apply(): Behavior[Command] = Behaviors.withTimers { timers: TimerScheduler[Command] =>\n    Behaviors.setup { context =>\n      timers.startTimerWithFixedDelay(CycleKey, Cycle, 1.second)\n      cycleBehavior(A)\n    }\n  }\n\n  private def cycleBehavior(current: State): Behavior[Command] = Behaviors.receive { (ctx, msg) =>\n    msg match {\n      case Cycle =>\n        val next = current match {\n          case A => B\n          case B => C\n          case C => A\n        }\n        ctx.log.info(s\"Transitioning from $current to $next\")\n        cycleBehavior(next)\n    }\n  }\n}\n\nobject PeriodicStateChangerApp extends App {\n  val system = ActorSystem(PeriodicStateChanger(), \"PeriodicStateChangerSystem\")\n  Thread.sleep(5000)\n  system.terminate()\n}\n"
+        }
+      ]
+    },
+    {
+      "conversations": [
+        {
+          "from": "human",
+          "value": "Implement a typed actor in Scala named DelayedReplyActor that, upon receiving a Request(msg), replies with a Response(msg) after 2 seconds."
+        },
+        {
+          "from": "assistant",
+          "value": "import akka.actor.typed.scaladsl.Behaviors\nimport akka.actor.typed.{ActorRef, ActorSystem, Behavior}\nimport scala.concurrent.duration._\nimport scala.concurrent.ExecutionContext\n\nobject DelayedReplyActor {\n  sealed trait Command\n  final case class Request(msg: String, replyTo: ActorRef[Response]) extends Command\n  final case class Response(msg: String)\n\n  def apply(): Behavior[Command] = Behaviors.setup { context =>\n    implicit val ec: ExecutionContext = context.executionContext\n\n    Behaviors.receiveMessage {\n      case Request(msg, replyTo) =>\n        // Schedule a delayed response\n        context.scheduleOnce(2.seconds, () => replyTo ! Response(msg))\n        Behaviors.same\n    }\n  }\n}\n\nobject DelayedReplyActorApp extends App {\n  import DelayedReplyActor._\n\n  val system = ActorSystem(DelayedReplyActor(), \"DelayedReplySystem\")\n\n  val probe = Behaviors.setup[Response] { probeCtx =>\n    Behaviors.receiveMessage { res =>\n      probeCtx.log.info(s\"Probe got response: ${res.msg}\")\n      Behaviors.same\n    }\n  }\n\n  val probeRef = ActorSystem(probe, \"ProbeSystem\")\n\n  system ! Request(\"HelloWorld\", probeRef)\n\n  Thread.sleep(3000)\n  system.terminate()\n  probeRef.terminate()\n}\n"
+        }
+      ]
+    },
+    {
+      "conversations": [
+        {
+          "from": "human",
+          "value": "Create an Akka Streams example in Scala that partitions a stream of numbers into even and odd flows and prints them separately."
+        },
+        {
+          "from": "assistant",
+          "value": "import akka.actor.ActorSystem\nimport akka.stream.scaladsl.{Partition, RunnableGraph, Sink, Source}\nimport akka.stream.{ActorMaterializer, ClosedShape}\nimport scala.concurrent.ExecutionContextExecutor\n\nobject PartitionStreamExample extends App {\n  implicit val system: ActorSystem = ActorSystem(\"PartitionExampleSystem\")\n  implicit val ec: ExecutionContextExecutor = system.dispatcher\n  implicit val mat: ActorMaterializer = ActorMaterializer()(system)\n\n  val numbers = Source(1 to 10)\n\n  // Partition into even (outlet 0) and odd (outlet 1)\n  val partition = Partition[Int](2, n => if (n % 2 == 0) 0 else 1)\n\n  val evenSink = Sink.foreach[Int](n => println(s\"Even: $n\"))\n  val oddSink = Sink.foreach[Int](n => println(s\"Odd: $n\"))\n\n  val graph = RunnableGraph.fromGraph(\n    akka.stream.scaladsl.GraphDSL.create() { implicit builder =>\n      import akka.stream.scaladsl.GraphDSL.Implicits._\n\n      val p = builder.add(partition)\n\n      numbers ~> p.in\n      p.out(0) ~> evenSink\n      p.out(1) ~> oddSink\n\n      akka.stream.ClosedShape\n    }\n  )\n\n  graph.run()\n  Thread.sleep(1000)\n  system.terminate()\n}\n"
+        }
+      ]
+    },
+    {
+      "conversations": [
+        {
+          "from": "human",
+          "value": "Show an Akka Streams custom Graph stage in Scala that filters out numbers less than 5."
+        },
+        {
+          "from": "assistant",
+          "value": "import akka.actor.ActorSystem\nimport akka.stream.{ActorMaterializer, Attributes, FlowShape, Inlet, Outlet}\nimport akka.stream.stage.{GraphStage, GraphStageLogic, InHandler, OutHandler}\nimport akka.stream.scaladsl.{Sink, Source}\nimport scala.concurrent.ExecutionContextExecutor\nimport akka.Done\nimport scala.concurrent.Future\n\nclass FilterLessThanFiveStage extends GraphStage[FlowShape[Int, Int]] {\n  val in: Inlet[Int] = Inlet(\"FilterLessThanFive.in\")\n  val out: Outlet[Int] = Outlet(\"FilterLessThanFive.out\")\n\n  override val shape: FlowShape[Int, Int] = FlowShape(in, out)\n\n  override def createLogic(inheritedAttributes: Attributes): GraphStageLogic = new GraphStageLogic(shape) {\n    setHandler(in, new InHandler {\n      override def onPush(): Unit = {\n        val elem = grab(in)\n        if (elem >= 5) push(out, elem) else pull(in)\n      }\n    })\n\n    setHandler(out, new OutHandler {\n      override def onPull(): Unit = pull(in)\n    })\n  }\n}\n\nobject FilterLessThanFiveStageApp extends App {\n  implicit val system: ActorSystem = ActorSystem(\"FilterStageSystem\")\n  implicit val ec: ExecutionContextExecutor = system.dispatcher\n  implicit val mat: ActorMaterializer = ActorMaterializer()(system)\n\n  val source = Source(1 to 10)\n  val filterFlow = new FilterLessThanFiveStage\n  val sink = Sink.foreach[Int](x => println(s\"Got: $x\"))\n\n  val done: Future[Done] = source.via(filterFlow).runWith(sink)\n\n  done.onComplete(_ => system.terminate())\n}\n"
+        }
+      ]
+    },
+    {
+      "conversations": [
+        {
+          "from": "human",
+          "value": "Implement a typed cluster example in Scala that demonstrates publishing messages via the Cluster PubSub Mediator."
+        },
+        {
+          "from": "assistant",
+          "value": "import akka.actor.typed.scaladsl.{Behaviors, ActorContext}\nimport akka.actor.typed.{ActorRef, ActorSystem, Behavior}\nimport akka.cluster.pubsub.{DistributedPubSub, DistributedPubSubMediator}\nimport akka.cluster.typed.{Cluster, SelfUp}\nimport akka.actor.typed.scaladsl.adapter._\nimport akka.cluster.ClusterEvent.MemberUp\n\nobject PubSubPublisher {\n  sealed trait Command\n  case class PublishMsg(topic: String, msg: String) extends Command\n\n  def apply(): Behavior[Command] = Behaviors.setup { context =>\n    // Access classic PubSub mediator\n    val mediator = DistributedPubSub(context.system.toClassic).mediator\n\n    Behaviors.receiveMessage {\n      case PublishMsg(topic, msg) =>\n        mediator ! DistributedPubSubMediator.Publish(topic, msg)\n        context.log.info(s\"Published '$msg' to topic '$topic'\")\n        Behaviors.same\n    }\n  }\n}\n\nobject PubSubSubscriber {\n  sealed trait Command\n  private case class WrappedMessage(msg: Any) extends Command\n\n  def apply(topic: String): Behavior[Command] = Behaviors.setup { context =>\n    val mediator = DistributedPubSub(context.system.toClassic).mediator\n    val adapter = context.messageAdapter[Any](WrappedMessage)\n    mediator ! DistributedPubSubMediator.Subscribe(topic, adapter.toClassic)\n\n    Behaviors.receiveMessage {\n      case WrappedMessage(msg) =>\n        context.log.info(s\"Subscriber to '$topic' received: $msg\")\n        Behaviors.same\n    }\n  }\n}\n\nobject TypedClusterPubSubExample extends App {\n  val system = ActorSystem(Behaviors.setup[Nothing] { ctx =>\n    val publisher = ctx.spawn(PubSubPublisher(), \"publisher\")\n    val subscriber = ctx.spawn(PubSubSubscriber(\"news\"), \"subscriber\")\n\n    // Publish after a delay\n    import scala.concurrent.duration._\n    import ctx.executionContext\n    ctx.scheduleOnce(2.seconds) {\n      publisher ! PubSubPublisher.PublishMsg(\"news\", \"Hello cluster pubsub!\")\n    }\n\n    Behaviors.empty\n  }, \"PubSubCluster\")\n\n  // This example needs a running cluster or a single node with `akka-cluster` config.\n  // The subscriber and publisher are both in the same node here for demonstration.\n  Thread.sleep(5000)\n  system.terminate()\n}\n"
+        }
+      ]
+    },
+    {
+      "conversations": [
+        {
+          "from": "human",
+          "value": "Show an Akka Persistence Typed actor that uses an ORSet to track unique strings across events, demonstrating a domain for user tags."
+        },
+        {
+          "from": "assistant",
+          "value": "import akka.actor.typed.scaladsl.Behaviors\nimport akka.actor.typed.{ActorSystem, Behavior}\nimport akka.cluster.ddata.ORSet\nimport akka.cluster.ddata.typed.scaladsl.Replicator\nimport akka.persistence.typed.scaladsl.{Effect, EventSourcedBehavior, RetentionCriteria}\nimport akka.persistence.typed.PersistenceId\n\nobject ORSetPersistence {\n  sealed trait Command\n  case class AddTag(tag: String) extends Command\n  case object PrintTags extends Command\n\n  sealed trait Event\n  case class TagAdded(tag: String) extends Event\n\n  final case class State(tags: Set[String])\n\n  def apply(entityId: String): Behavior[Command] = EventSourcedBehavior[\n    Command,\n    Event,\n    State\n  ](\n    persistenceId = PersistenceId.ofUniqueId(entityId),\n    emptyState = State(Set.empty),\n    commandHandler = (state, cmd) => cmd match {\n      case AddTag(tag) => Effect.persist(TagAdded(tag))\n      case PrintTags =>\n        println(s\"Current tags: ${state.tags.mkString(\", \")}\")\n        Effect.none\n    },\n    eventHandler = (state, evt) => evt match {\n      case TagAdded(tag) => state.copy(tags = state.tags + tag)\n    }\n  ).withRetention(\n    RetentionCriteria.snapshotEvery(numberOfEvents = 5, keepNSnapshots = 2)\n  )\n}\n\nobject ORSetPersistenceApp extends App {\n  import ORSetPersistence._\n  val system = ActorSystem(ORSetPersistence(\"orset-entity\"), \"ORSetPersistenceSystem\")\n\n  system ! AddTag(\"akka\")\n  system ! AddTag(\"cluster\")\n  system ! PrintTags\n  Thread.sleep(1000)\n  system.terminate()\n}\n"
+        }
+      ]
+    },
+    {
+      "conversations": [
+        {
+          "from": "human",
+          "value": "Build an example typed actor that uses event-based timers to schedule a repeating Tick message every 1 second, but stops after 5 ticks."
+        },
+        {
+          "from": "assistant",
+          "value": "import akka.actor.typed.scaladsl.{Behaviors, TimerScheduler}\nimport akka.actor.typed.{ActorSystem, Behavior}\nimport scala.concurrent.duration._\n\nobject RepeatingTimerActor {\n  sealed trait Command\n  private case object TimerTickKey\n  private case object Tick extends Command\n\n  def apply(): Behavior[Command] = Behaviors.withTimers { timers: TimerScheduler[Command] =>\n    Behaviors.setup { context =>\n      var tickCount = 0\n      timers.startTimerWithFixedDelay(TimerTickKey, Tick, 1.second)\n\n      Behaviors.receiveMessage {\n        case Tick =>\n          tickCount += 1\n          context.log.info(s\"Tick #$tickCount\")\n          if (tickCount >= 5) {\n            context.log.info(\"Reached 5 ticks, stopping.\")\n            Behaviors.stopped\n          } else {\n            Behaviors.same\n          }\n      }\n    }\n  }\n}\n\nobject RepeatingTimerActorApp extends App {\n  val system = ActorSystem(RepeatingTimerActor(), \"RepeatingTimerSystem\")\n  Thread.sleep(7000)\n  system.terminate()\n}\n"
+        }
+      ]
+    },
+    {
+      "conversations": [
+        {
+          "from": "human",
+          "value": "Demonstrate an Akka Streams example that merges data from two sources, uses a sliding window of size 3, and prints the windows."
+        },
+        {
+          "from": "assistant",
+          "value": "import akka.actor.ActorSystem\nimport akka.stream.ActorMaterializer\nimport akka.stream.scaladsl.{Merge, Sink, Source}\nimport scala.concurrent.ExecutionContextExecutor\nimport scala.concurrent.duration._\n\nobject SlidingWindowMergeExample extends App {\n  implicit val system: ActorSystem = ActorSystem(\"SlidingWindowMergeSystem\")\n  implicit val ec: ExecutionContextExecutor = system.dispatcher\n  implicit val mat: ActorMaterializer = ActorMaterializer()(system)\n\n  val sourceA = Source(List(1, 2, 3))\n  val sourceB = Source(List(4, 5, 6))\n\n  // Merge the two sources, then apply sliding\n  val merged = Source.combine(sourceA, sourceB)(Merge(_))\n\n  merged\n    .sliding(3, 1)   // create windows of size 3, sliding by 1\n    .runWith(Sink.foreach(window => println(s\"Window: $window\")))\n\n  Thread.sleep(1000)\n  system.terminate()\n}\n"
+        }
+      ]
+    },
+    {
+      "conversations": [
+        {
+          "from": "human",
+          "value": "Show a typed actor named ChildWatcherTyped that spawns a child, watches it, and logs when the child terminates."
+        },
+        {
+          "from": "assistant",
+          "value": "import akka.actor.typed.scaladsl.Behaviors\nimport akka.actor.typed.{ActorSystem, Behavior, Terminated}\n\nobject ChildWatcherTyped {\n  sealed trait Command\n  case object SpawnChild extends Command\n  case object StopChild extends Command\n\n  def apply(): Behavior[Command] = Behaviors.setup { context =>\n    var childRefOpt = Option.empty[akka.actor.typed.ActorRef[Nothing]]\n\n    Behaviors.receiveMessage {\n      case SpawnChild =>\n        val child = context.spawn(Behaviors.ignore, \"watchedChild\")\n        context.watch(child)\n        childRefOpt = Some(child)\n        context.log.info(\"Spawned and watching child.\")\n        Behaviors.same\n      case StopChild =>\n        childRefOpt.foreach(ref => context.stop(ref))\n        Behaviors.same\n    }.receiveSignal {\n      case (ctx, Terminated(ref)) =>\n        ctx.log.info(s\"Child $ref terminated.\")\n        Behaviors.same\n    }\n  }\n}\n\nobject ChildWatcherTypedApp extends App {\n  val system = ActorSystem(ChildWatcherTyped(), \"WatcherTypedSystem\")\n\n  system ! ChildWatcherTyped.SpawnChild\n  Thread.sleep(500)\n  system ! ChildWatcherTyped.StopChild\n\n  Thread.sleep(1000)\n  system.terminate()\n}\n"
+        }
+      ]
+    },
+    {
+      "conversations": [
+        {
+          "from": "human",
+          "value": "Implement a typed actor that uses a BehaviorTestKit to verify state transitions from 'idle' to 'active' upon receiving a command."
+        },
+        {
+          "from": "assistant",
+          "value": "import akka.actor.testkit.typed.scaladsl.BehaviorTestKit\nimport akka.actor.typed.scaladsl.Behaviors\n\nobject StateTransitionActor {\n  sealed trait Command\n  case object GoActive extends Command\n  case object CheckStatus extends Command\n\n  sealed trait State\n  case object Idle extends State\n  case object Active extends State\n\n  def apply(): Behaviors.Receive[Command] = Behaviors.receive { (context, message) =>\n    message match {\n      case GoActive =>\n        context.log.info(\"Transitioning to active.\")\n        active\n      case CheckStatus =>\n        context.log.info(\"Currently in idle state.\")\n        Behaviors.same\n    }\n  }\n\n  def active: Behaviors.Receive[Command] = Behaviors.receive { (context, message) =>\n    message match {\n      case CheckStatus =>\n        context.log.info(\"Currently in active state.\")\n        Behaviors.same\n      case _ => Behaviors.same\n    }\n  }\n}\n\n// Testing example\nobject StateTransitionActorTest extends App {\n  import StateTransitionActor._\n\n  val testKit = BehaviorTestKit(StateTransitionActor())\n  testKit.run(CheckStatus)\n\n  // Transition to active\n  testKit.run(GoActive)\n\n  // Now test the new state\n  testKit.run(CheckStatus)\n\n  // Inspect logs or internal state changes in a real unit test scenario.\n}\n"
+        }
+      ]
+    },
+    {
+      "conversations": [
+        {
+          "from": "human",
+          "value": "Design a typed Streams example that uses Source.unfold to generate Fibonacci numbers, up to a certain limit."
+        },
+        {
+          "from": "assistant",
+          "value": "import akka.actor.ActorSystem\nimport akka.stream.{ActorMaterializer, OverflowStrategy}\nimport akka.stream.scaladsl.{Sink, Source}\nimport scala.concurrent.ExecutionContextExecutor\n\nobject FibonacciUnfoldStream extends App {\n  implicit val system: ActorSystem = ActorSystem(\"FibonacciUnfoldSystem\")\n  implicit val ec: ExecutionContextExecutor = system.dispatcher\n  implicit val mat: ActorMaterializer = ActorMaterializer()(system)\n\n  // Create a Source of Fibonacci numbers up to 100\n  val fibSource = Source.unfold((0L, 1L)) {\n    case (a, b) if a > 100 => None\n    case (a, b) => Some((b, a + b) -> a)\n  }\n\n  fibSource.runWith(Sink.foreach(num => println(s\"Fib: $num\")))\n    .onComplete(_ => system.terminate())\n}\n"
+        }
+      ]
+    },
+    {
+      "conversations": [
+        {
+          "from": "human",
+          "value": "Show an untyped actor example named WorkerSupervisor that uses a OneForOneStrategy to resume on NullPointerException, but restart on IllegalStateException."
+        },
+        {
+          "from": "assistant",
+          "value": "import akka.actor.{Actor, ActorSystem, Props, OneForOneStrategy, SupervisorStrategy}\nimport scala.concurrent.duration._\nimport akka.actor.SupervisorStrategy.{Resume, Restart}\n\ncase object NullFail\ncase object IllegalFail\n\nclass FaultyWorker extends Actor {\n  def receive: Receive = {\n    case NullFail => throw new NullPointerException(\"Null fail\")\n    case IllegalFail => throw new IllegalStateException(\"Illegal fail\")\n    case msg => println(s\"FaultyWorker received: $msg\")\n  }\n}\n\nclass WorkerSupervisor extends Actor {\n  override val supervisorStrategy: SupervisorStrategy = OneForOneStrategy() {\n    case _: NullPointerException => Resume\n    case _: IllegalStateException => Restart\n  }\n\n  val child = context.actorOf(Props[FaultyWorker](), \"faultyWorker\")\n\n  def receive: Receive = {\n    case msg => child.forward(msg)\n  }\n}\n\nobject WorkerSupervisorApp extends App {\n  val system = ActorSystem(\"WorkerSupervisorSystem\")\n  val supervisor = system.actorOf(Props[WorkerSupervisor](), \"supervisor\")\n\n  supervisor ! NullFail // should resume\n  Thread.sleep(500)\n  supervisor ! IllegalFail // should restart\n  Thread.sleep(500)\n\n  system.terminate()\n}\n"
+        }
+      ]
+    },
+    {
+      "conversations": [
+        {
+          "from": "human",
+          "value": "Create an untyped actor example that simulates a chat server with user join/leave, storing active users in a list, not covered previously."
+        },
+        {
+          "from": "assistant",
+          "value": "import akka.actor.{Actor, ActorSystem, Props}\n\ncase class JoinChat(username: String)\ncase class LeaveChat(username: String)\ncase class ChatMessage(username: String, text: String)\n\nclass ChatServerActor extends Actor {\n  var activeUsers = List.empty[String]\n\n  def receive: Receive = {\n    case JoinChat(user) =>\n      if (!activeUsers.contains(user)) {\n        activeUsers = user :: activeUsers\n        println(s\"$user joined chat. Active users: $activeUsers\")\n      } else {\n        println(s\"$user is already in chat.\")\n      }\n\n    case LeaveChat(user) =>\n      if (activeUsers.contains(user)) {\n        activeUsers = activeUsers.filterNot(_ == user)\n        println(s\"$user left chat. Active users: $activeUsers\")\n      } else {\n        println(s\"$user not found in chat.\")\n      }\n\n    case ChatMessage(user, text) =>\n      if (activeUsers.contains(user)) {\n        println(s\"[$user]: $text\")\n      } else {\n        println(s\"ChatServer: $user not in chat, ignoring message.\")\n      }\n\n    case other => println(s\"ChatServer: Unknown message: $other\")\n  }\n}\n\nobject ChatServerApp extends App {\n  val system = ActorSystem(\"ChatServerSystem\")\n  val chatServer = system.actorOf(Props[ChatServerActor](), \"chatServer\")\n\n  chatServer ! JoinChat(\"Alice\")\n  chatServer ! JoinChat(\"Bob\")\n  chatServer ! ChatMessage(\"Alice\", \"Hello Bob!\")\n  chatServer ! LeaveChat(\"Bob\")\n  chatServer ! ChatMessage(\"Bob\", \"This won't show.\")\n\n  Thread.sleep(1000)\n  system.terminate()\n}\n"
+        }
+      ]
+    }
+  ]
+  

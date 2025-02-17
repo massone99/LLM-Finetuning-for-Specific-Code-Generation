@@ -49,8 +49,10 @@ def process_trained_model(
     with open(f"{output_dir}/training_metrics.json", "w") as f:
         json.dump(training_metrics, f, indent=2)
 
-    # Save the fine-tuned model
-    trainer.save_model(f"{output_dir}/finetuned_model")
+    # Save the fine-tuned model with the new naming pattern
+    model_name = f"llama3.2-r={peft_params['r']}-alpha={peft_params['lora_alpha']}-training_size={train_dataset_size}"
+    model_save_path = os.path.join(output_dir, model_name)
+    trainer.save_model(model_save_path)
 
     # Evaluate model after fine-tuning
     print("Evaluating model after fine-tuning...")

@@ -1,34 +1,38 @@
-```scala
-import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props}
-import akka.actor.SupervisorStrategy.{Escalate, Restart, Stop}
-import akka.actor.OneForOneStrategy
+import akka.actor.{Actor, ActorLogging, Props, SupervisorStrategy, Terminated}
+import akka.routing.RoundRobinPool
 
 class EscalatingSupervisor extends Actor with ActorLogging {
-  val faultyChildActor: ActorRef = context.actorOf(Props[FaultyChildActor], "faultyChildActor")
+  val faultyChildActor = context.actorOf(Props[FaultyChildActor], "faultyChild")
+
+  override def supervisorStrategy: SupervisorStrategy =
+    OneForOneStrategy() {
+      case _: NullPointerException => Escalate
+    }
 
   override def receive: Receive = {
-    case "causeNull" => faultyChildActor ! "causeNull"
-    case _ => log.info("Received unknown message")
-  }
-
-  override def supervisorStrategy: SupervisorStrategy = OneForOneStrategy(maxNrOfRetries = 10, withinTimeRange = 1 minute) {
-    case _: NullPointerException => Escalate
+    case msg: String =>
+      log.info(s"EscalatingSupervisor received message: $msg")
+      faultyChildActor forward s"causeNull_$msg"
+    case Terminated(child) =>
+      log.error("Faulty child actor terminated, restarting...")
+      context.watch(context.actorOf(Props[FaultyChildActor], "faultyChild"))
   }
 }
 
 class FaultyChildActor extends Actor with ActorLogging {
   override def receive: Receive = {
-    case "causeNull" => throw new NullPointerException("FaultyChildActor encountered a NullPointerException")
-    case _ => log.info("Received unknown message")
+    case "causeNull" => throw new NullPointerException("Simulating null pointer")
+    case msg: String =>
+      log.info(s"FaultyChildActor received message: $msg")
   }
 }
 
-object EscalatingSupervisorDemo extends App {
-  val system = ActorSystem("EscalatingSupervisorDemo")
-  val escalatingSupervisor = system.actorOf(Props[EscalatingSupervisor], "escalatingSupervisor")
+object EscalatingSupervisorApp extends App {
+  import akka.actor.ActorSystem
+  implicit val system = ActorSystem("EscalationExample")
 
-  escalatingSupervisor ! "causeNull"
+  val supervisor = system.actorOf(Props[EscalatingSupervisor], "supervisor")
+
+  // Simulate failure and observe the escalation behavior
+  supervisor ! "test"
 }
-```
-
-This code defines an Akka Supervisor Actor named EscalatingSupervisor that supervises a child actor named FaultyChildActor. The FaultyChildActor throws a NullPointerException when it receives a "causeNull" message. The supervisor's strategy is set to escalate the failure to its own supervisor upon encountering an exception. The supervision hierarchy and failure escalation are demonstrated in the EscalatingSupervisorDemo object.

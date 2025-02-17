@@ -109,7 +109,11 @@ import json
 import os
 from pathlib import Path
 
-alpaca_prompt = """Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.
+# Add this at the beginning of your script or before the function definition
+SYSTEM_PROMPT = "RETURN ONLY VALID CODE"
+
+# Modified alpaca prompt template that includes the system prompt
+alpaca_prompt_with_system = """Below is an instruction that describes a task, paired with an input that provides further context. {}
 
 ### Instruction:
 {}
@@ -118,8 +122,7 @@ alpaca_prompt = """Below is an instruction that describes a task, paired with an
 {}
 
 ### Response:
-{}"""
-
+{}""".format(SYSTEM_PROMPT, "{}", "{}", "{}")
 
 EOS_TOKEN = tokenizer.eos_token # Must add EOS_TOKEN
 def formatting_prompts_func(examples):
@@ -131,8 +134,8 @@ def formatting_prompts_func(examples):
             # Extract response from assistant message
             response = [conv["value"] for conv in item if conv["from"] == "assistant"][0]
 
-            # Format using the template
-            text = alpaca_prompt.format(
+            # Format using the modified template with system prompt
+            text = alpaca_prompt_with_system.format(
                 instruction,  # Instruction
                 "",          # Input (empty in this case)
                 response     # Response/output
@@ -166,8 +169,8 @@ def generate_and_save_responses(model, tokenizer, base_model, test_dataset_path=
         instruction = item["conversations"][0]["value"]
         input_text = ""  # No separate input in this format
 
-        # Format input using our template
-        prompt = alpaca_prompt.format(
+        # Format input using our template with system prompt
+        prompt = alpaca_prompt_with_system.format(
             instruction,
             input_text,
             ""  # Empty output for generation
