@@ -12,7 +12,7 @@ sys.path.extend([str(ROOT_DIR), str(LLAMA_FINETUNE_DIR)])
 from evaluation_utils.build_client import BuildCheckerClient
 
 # Import helper functions
-from helpers import process_variation_result, print_prompt_summary, save_evaluation_results
+from helpers import process_variation_result, print_prompt_summary, save_evaluation_results, save_final_report
 
 def load_test_prompts(test_set_path: str) -> List[str]:
     with open(test_set_path, 'r') as f:
@@ -23,7 +23,7 @@ def load_test_prompts(test_set_path: str) -> List[str]:
 
 def main():
     evaluator = PromptEvaluator()
-    debug_response = True
+    debug_response = False
     # Load prompts from test_set.json
     test_set_path = Path(__file__).parent.parent / "res" / "test_set.json"
     test_prompts = load_test_prompts(test_set_path)
@@ -58,7 +58,7 @@ def main():
 
         print_prompt_summary(prompt_index, prompt_successful_runs, prompt_total_snippets, prompt_variation_metrics)
 
-    # Print final summary
+    # Print and save final summary
     print("\n" + "=" * 50)
     print("FINAL RESULTS")
     print("=" * 50)
@@ -71,8 +71,9 @@ def main():
         print(f"- Average BLEU Score: {avg_bleu:.4f}")
         print(f"- Success Rate: {success_rate:.2f}% ({metrics['successful_runs']}/{metrics['total_runs']} snippets)")
     
-    # Save all results using the new method
+    # Save all results
     save_evaluation_results(all_results)
+    save_final_report(total_successful_runs, total_snippets, variation_metrics)
 
 if __name__ == "__main__":
     main()

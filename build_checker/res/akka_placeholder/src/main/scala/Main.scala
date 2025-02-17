@@ -1,44 +1,34 @@
-// Define message types as case classes
-sealed trait Message {
-  def to: String
-}
+```scala
+import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props}
+import akka.actor.SupervisorStrategy.{Escalate, Restart, Stop}
+import akka.actor.OneForOneStrategy
 
-case class EchoMessage(message: String) extends Message
+class EscalatingSupervisor extends Actor with ActorLogging {
+  val faultyChildActor: ActorRef = context.actorOf(Props[FaultyChildActor], "faultyChildActor")
 
-case object StopEchoActor extends Message
-
-object Messages {
-  val echo = "echo"
-  val stop = "stop"
-}
-
-// Actor implementation with behaviors
-import akka.actor.ActorSystem, Props
-import akka.actor.Props
-import scala.concurrent.duration._
-
-class EchoActor extends Actor with ActorSystem {
   override def receive: Receive = {
-    case msg @ Messages.echo => sender() ! msg.to
-    case _ if self == systemactorSystem => stop()
-    case _ =>
-      context.become(DeadLetterHandler())
+    case "causeNull" => faultyChildActor ! "causeNull"
+    case _ => log.info("Received unknown message")
+  }
+
+  override def supervisorStrategy: SupervisorStrategy = OneForOneStrategy(maxNrOfRetries = 10, withinTimeRange = 1 minute) {
+    case _: NullPointerException => Escalate
   }
 }
 
-// System integration setup
-import akka.actor.ActorRef, ActorMaterializer
-
-object EchoActorApp {
-  def main(args: Array[String]): Unit = {
-    implicit val materializer: ActorMaterializer = ActorMaterializer()
-    implicit val system = ActorSystem("EchoActor")
-    val echoActor = system.actorOf(Props(EchoActor))
-
-    // Test sending message
-    val ref = echoActor
-    ref ! Messages.echo
-    Thread.sleep(100)
-    ref ! Messages.stop
+class FaultyChildActor extends Actor with ActorLogging {
+  override def receive: Receive = {
+    case "causeNull" => throw new NullPointerException("FaultyChildActor encountered a NullPointerException")
+    case _ => log.info("Received unknown message")
   }
 }
+
+object EscalatingSupervisorDemo extends App {
+  val system = ActorSystem("EscalatingSupervisorDemo")
+  val escalatingSupervisor = system.actorOf(Props[EscalatingSupervisor], "escalatingSupervisor")
+
+  escalatingSupervisor ! "causeNull"
+}
+```
+
+This code defines an Akka Supervisor Actor named EscalatingSupervisor that supervises a child actor named FaultyChildActor. The FaultyChildActor throws a NullPointerException when it receives a "causeNull" message. The supervisor's strategy is set to escalate the failure to its own supervisor upon encountering an exception. The supervision hierarchy and failure escalation are demonstrated in the EscalatingSupervisorDemo object.

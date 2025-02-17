@@ -77,6 +77,12 @@ def parse_args():
         default=20,
         help="Number of trials for SMAC optimization",
     )
+    # New argument for evaluating base (not finetuned) model
+    parser.add_argument(
+        "--eval-base",
+        action="store_true",
+        help="Evaluate the not finetuned model using build checker and BLEU score",
+    )
     return parser.parse_args()
 
 
@@ -202,6 +208,14 @@ def main():
     try:
         if args.load_model:
             process_loaded_model(args, model, output_dir, tokenizer, train_dataset_size)
+        elif args.eval_base:
+            # Evaluate the base (not finetuned) model
+            print("Evaluating base (not finetuned) model...")
+            from training.evaluate import evaluate_model
+            results_file, avg_bleu, samples_info = evaluate_model(
+                model, tokenizer, args.test_dataset_path, train_dataset_size, output_prefix="base"
+            )
+            print(f"Evaluation complete. BLEU: {avg_bleu:.4f} - Results: {results_file}")
         elif args.grid_search:
             best_params = execute_smac_optimization(
                 args, model, tokenizer, max_seq_length, train_dataset_size
