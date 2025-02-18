@@ -10,7 +10,7 @@ class PromptEvaluator:
         self.model_name = model_name
         self.base_system_prompt = (
             base_system_prompt
-            or "You are a code assistant specialized in Akka and Scala. Provide only code in your response, without explanations or markdown formatting. Focus on actor-based solutions."
+            or "You are an expert code assistant specializing in Akka and Scala. Your responses must consist solely of syntactically correct, runnable Scala code—no explanations, comments, or markdown formatting are allowed."
         )
 
     def generate_response(self, prompt: str, system_prompt: str = None) -> Dict:

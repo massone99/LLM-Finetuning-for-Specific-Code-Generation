@@ -1,6 +1,7 @@
 import requests
 import time
 from typing import Dict, List
+import logging
 
 class SimpleModelEvaluator:
     def __init__(self, model_name: str = "qwen2.5", system_prompt: str = None):
@@ -8,8 +9,11 @@ class SimpleModelEvaluator:
         self.model_name = model_name
         self.system_prompt = (
             system_prompt
-            or "You are a code assistant specialized in Akka and Scala. Provide only code in your response, without explanations or markdown formatting. Focus on actor-based solutions."
+            or "You are an expert code assistant specializing in Akka and Scala. Your responses must consist solely of syntactically correct, runnable Scala code—no explanations, comments, or markdown formatting are allowed."
         )
+        self.logger = logging.getLogger(__name__)
+        logging.basicConfig(level=logging.INFO)
+        self.logger.info("System prompt: %s", self.system_prompt)
 
     def generate_response(self, prompt: str) -> Dict:
         payload = {

@@ -1,38 +1,33 @@
-import akka.actor.{Actor, ActorLogging, Props, SupervisorStrategy, Terminated}
-import akka.routing.RoundRobinPool
+import akka.actor.{Actor, ActorSystem, Props}
+import akka.routing.Props
 
-class EscalatingSupervisor extends Actor with ActorLogging {
-  val faultyChildActor = context.actorOf(Props[FaultyChildActor], "faultyChild")
+case object CauseNull
 
-  override def supervisorStrategy: SupervisorStrategy =
-    OneForOneStrategy() {
-      case _: NullPointerException => Escalate
+class FaultyChildActor extends Actor {
+  def receive = {
+    case "causeNull" => throw new NullPointerException("Message caused null")
+    case _ => println("Received non-null message")
+  }
+}
+
+class EscalatingSupervisor extends Actor {
+  val child = context.actorOf(Props[FaultyChildActor], "faultyChild")
+
+  def receive = {
+    case msg: Any => child forward msg
+  }
+
+  override val supervisorStrategy =
+    OneForOneStrategy()(context.system) {
+      case e: NullPointerException => Escalate
     }
-
-  override def receive: Receive = {
-    case msg: String =>
-      log.info(s"EscalatingSupervisor received message: $msg")
-      faultyChildActor forward s"causeNull_$msg"
-    case Terminated(child) =>
-      log.error("Faulty child actor terminated, restarting...")
-      context.watch(context.actorOf(Props[FaultyChildActor], "faultyChild"))
-  }
 }
 
-class FaultyChildActor extends Actor with ActorLogging {
-  override def receive: Receive = {
-    case "causeNull" => throw new NullPointerException("Simulating null pointer")
-    case msg: String =>
-      log.info(s"FaultyChildActor received message: $msg")
-  }
-}
-
-object EscalatingSupervisorApp extends App {
-  import akka.actor.ActorSystem
-  implicit val system = ActorSystem("EscalationExample")
-
+object Main extends App {
+  implicit val system = ActorSystem("SupervisionSystem")
   val supervisor = system.actorOf(Props[EscalatingSupervisor], "supervisor")
 
-  // Simulate failure and observe the escalation behavior
-  supervisor ! "test"
+  supervisor ! CauseNull
+
+  Thread.sleep(1000)
 }

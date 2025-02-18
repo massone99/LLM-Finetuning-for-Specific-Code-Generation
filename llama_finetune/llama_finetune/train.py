@@ -7,7 +7,7 @@ from PyQt5.QtWidgets import QApplication, QFileDialog
 import json
 from datetime import datetime
 
-from training.config import PEFT_PARAMS, TRAINING_PARAMS, store_model_info
+from training.config import PEFT_PARAMS, TRAINING_PARAMS, store_model_info, store_base_model_info
 
 from training.model_loader import load_model_and_tokenizer
 from training.grid_search import execute_smac_optimization
@@ -154,7 +154,7 @@ def save_grid_search_results(output_dir: str, best_params: dict) -> None:
 
 # To select the dataset with a GUI, append the flag --gui-select
 
-# Grid search (with Smac) (TODO: FIX)
+# Grid search (with Smac)
 # poetry run python train.py --dataset-path ../res/data/dataset_llama.json --output-dir ../res/outputs --grid-search
 
 
@@ -216,6 +216,14 @@ def main():
                 model, tokenizer, args.test_dataset_path, train_dataset_size, output_prefix="base"
             )
             print(f"Evaluation complete. BLEU: {avg_bleu:.4f} - Results: {results_file}")
+            
+            store_base_model_info(
+                "../res/data/trained_models/",
+                train_dataset_size,
+                len(load_dataset("json", data_files=args.test_dataset_path, split="train")),
+                avg_bleu,
+                samples_info
+            )
         elif args.grid_search:
             best_params = execute_smac_optimization(
                 args, model, tokenizer, max_seq_length, train_dataset_size

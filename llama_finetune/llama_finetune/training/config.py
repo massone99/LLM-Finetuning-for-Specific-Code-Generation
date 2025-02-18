@@ -143,6 +143,27 @@ TRAINING_PARAMS = {
     "report_to": "none",  # Disable external logging
 }
 
+def _store_model_record(output_dir, model_hash, record):
+    """
+    Internal utility to store a model record in the trained_models.json file.
+    """
+    trained_models_path = os.path.join(output_dir, "trained_models.json")
+
+    if os.path.exists(trained_models_path):
+        with open(trained_models_path, "r") as f:
+            trained_models = json.load(f)
+    else:
+        trained_models = []
+        os.makedirs(os.path.dirname(trained_models_path), exist_ok=True)
+
+    if any(m["model_hash"] == model_hash for m in trained_models):
+        print(f"Model info already exists for hash: {model_hash}")
+    else:
+        trained_models.append(record)
+        with open(trained_models_path, "w") as f:
+            json.dump(trained_models, f, indent=2)
+        print(f"Stored new model info with hash: {model_hash}")
+
 def store_model_info(output_dir, train_dataset_size, test_dataset_size, trainer_args, avg_bleu, samples_info, peft_params=PEFT_PARAMS):
     """
     Compute a unique hash for the model and hyperparameters, and append
@@ -153,7 +174,6 @@ def store_model_info(output_dir, train_dataset_size, test_dataset_size, trainer_
     from datetime import datetime 
     import json
 
-    # Combine relevant info into a single string, including PEFT params
     info_str = (
         f"batch_size={trainer_args.per_device_train_batch_size}-"
         f"lr={trainer_args.learning_rate}-"
@@ -161,7 +181,6 @@ def store_model_info(output_dir, train_dataset_size, test_dataset_size, trainer_
         f"max_steps={trainer_args.max_steps}-"
         f"train_size={train_dataset_size}-"
         f"test_size={test_dataset_size}-"
-        # BEWARE: the parameter "r" becomes "lora_rank" in the string
         f"lora_rank={peft_params['r']}-"
         f"lora_alpha={peft_params['lora_alpha']}-"
         f"lora_dropout={peft_params['lora_dropout']}"
@@ -171,6 +190,7 @@ def store_model_info(output_dir, train_dataset_size, test_dataset_size, trainer_
     record = {
         "model_hash": model_hash,
         "timestamp": datetime.now().isoformat(),
+        "model_type": "finetuned",
         # Training parameters
         "batch_size": trainer_args.per_device_train_batch_size,
         "gradient_accumulation_steps": trainer_args.gradient_accumulation_steps,
@@ -197,23 +217,35 @@ def store_model_info(output_dir, train_dataset_size, test_dataset_size, trainer_
             "total_snippets": samples_info[1]
         },  
     }
+    
+    _store_model_record(output_dir, model_hash, record)
 
-    trained_models_path = os.path.join(output_dir, "trained_models.json")
+def store_base_model_info(output_dir, train_dataset_size, test_dataset_size, avg_bleu, samples_info):
+    """
+    Store model info for the base (not fine-tuned) model.
+    """
+    import os
+    import hashlib
+    from datetime import datetime 
+    import json
+    
+    info_str = f"base_model-train_size={train_dataset_size}-test_size={test_dataset_size}"
+    model_hash = hashlib.sha256(info_str.encode("utf-8")).hexdigest()
 
-    # Load existing records, or create a new list
-    if os.path.exists(trained_models_path):
-        with open(trained_models_path, "r") as f:
-            trained_models = json.load(f)
-    else:
-        trained_models = []
-        os.makedirs(os.path.dirname(trained_models_path), exist_ok=True)
+    record = {
+        "model_hash": model_hash,
+        "timestamp": datetime.now().isoformat(),
+        "model_type": "base",
+        # Dataset info
+        "train_dataset_size": train_dataset_size,
+        "test_dataset_size": test_dataset_size,
+        # Evaluation metrics
+        "avg_bleu": avg_bleu,
+        "execution_check": {
+            "successful_runs": samples_info[0],
+            "total_snippets": samples_info[1]
+        },
+    }
 
-    # Check if hash already present
-    if any(m["model_hash"] == model_hash for m in trained_models):
-        print(f"Model info already exists for hash: {model_hash}")
-    else:
-        trained_models.append(record)
-        with open(trained_models_path, "w") as f:
-            json.dump(trained_models, f, indent=2)
-        print(f"Stored new model info with hash: {model_hash}")
+    _store_model_record(output_dir, model_hash, record)
 
