@@ -13,13 +13,6 @@ class FileLogger:
             raise e
     
     def write(self, text, heading: int = 0):
-        """
-        Write text to the log file.
-
-        Args:
-            text (str): The text to write.
-            heading (int, optional): The heading level. Defaults to 0.
-        """
         heading_prefix = '=' * heading
         self.log.write(f'\n{heading_prefix} {text}\n')
 
