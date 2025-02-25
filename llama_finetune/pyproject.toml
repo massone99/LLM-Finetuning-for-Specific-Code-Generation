@@ -21,6 +21,7 @@ uvicorn = "^0.34.0"
 matplotlib = "^3.10.0"
 pyqt5 = "^5.15.11"
 smac = "^2.3.0"
+sacrebleu = "^2.5.1"
 
 [tool.pyright]
 typeCheckingMode = "off"
