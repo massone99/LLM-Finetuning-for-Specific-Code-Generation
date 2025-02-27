@@ -8,6 +8,7 @@ from .trainer_setup import setup_trainer
 from .config import get_peft_params, get_training_params
 from .training_utils import process_trained_model
 from .smac_optimizer import optimize_hyperparameters, split_config_dict
+from .plotting_utils import plot_comparison
 
 def execute_smac_optimization(args, model, tokenizer, max_seq_length, train_dataset_size, n_trials=20):
     """Execute SMAC optimization for hyperparameter tuning."""
@@ -79,6 +80,22 @@ def execute_smac_optimization(args, model, tokenizer, max_seq_length, train_data
     best_score = -runhistory.get_cost(incumbent)  # Negate back since we minimized
     running_rate = best_score * 0.7  # Extract execution rate component
     bleu_score = best_score * 0.3   # Extract BLEU score component
+    
+    # Generate comparison plot of all trials
+    # Get all trial directories
+    trial_dirs = [
+        d for d in os.listdir(args.output_dir)
+        if d.startswith("smac_trial_") and os.path.isdir(os.path.join(args.output_dir, d))
+    ]
+    
+    if trial_dirs:
+        comparison_plot = plot_comparison(
+            trial_dirs,
+            args.output_dir,
+            os.path.join(args.output_dir, "comparisons")
+        )
+        if comparison_plot:
+            print(f"Comparison plot saved to: {comparison_plot}")
     
     return {
         "peft": peft_updates,

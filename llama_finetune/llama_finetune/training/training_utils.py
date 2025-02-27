@@ -7,6 +7,7 @@ from logger import file_logger
 from .dataset_utils import prepare_dataset
 from .trainer_setup import setup_trainer
 from .config import PEFT_PARAMS, store_model_info
+from .plotting_utils import plot_training_metrics
 
 def process_trained_model(
     args,
@@ -22,7 +23,7 @@ def process_trained_model(
     dataset = prepare_dataset(args.dataset_path, tokenizer)
 
     # Setup and start training with specific parameters
-    trainer = setup_trainer(
+    trainer, metrics_callback = setup_trainer(  # Updated to unpack metrics_callback
         model,
         tokenizer,
         dataset,
@@ -41,6 +42,7 @@ def process_trained_model(
     training_metrics = {
         "training_time_seconds": training_time,
         "training_stats": training_output.metrics if training_output else None,
+        "metrics_history": metrics_callback.metrics_history,  # Save history for plotting
     }
 
     # Create output directory if it doesn't exist
@@ -53,6 +55,16 @@ def process_trained_model(
     model_name = f"llama3.2-r={peft_params['r']}-alpha={peft_params['lora_alpha']}-training_size={train_dataset_size}"
     model_save_path = os.path.join(output_dir, model_name)
     trainer.save_model(model_save_path)
+
+    # Generate and save convergence plot
+    if metrics_callback.metrics_history and len(metrics_callback.metrics_history["loss"]) > 0:
+        plot_file = plot_training_metrics(
+            metrics_callback.metrics_history,
+            output_dir,
+            train_dataset_size,
+            peft_params
+        )
+        file_logger.write_and_print(f"\nTraining convergence plot saved to: {plot_file}")
 
     # Evaluate model after fine-tuning
     print("Evaluating model after fine-tuning...")
